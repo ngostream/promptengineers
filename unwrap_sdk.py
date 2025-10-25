@@ -83,6 +83,7 @@ async def create_embeddings(
     model: str = "sentence-transformers/all-MiniLM-L6-v2",
     api_key: str | None = None,
 ) -> List[List[float]]:
+    print("Creating embeddings...")
     """Create embeddings using Hugging Face Inference API with parallel processing."""
     try:
         from huggingface_hub import InferenceClient

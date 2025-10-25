@@ -17,7 +17,11 @@ class SimpleLexSentimentTool(BaseModel):
             {'role': "user", "content": f"Summarize the sentiment of these sentences: \n{'\n'.join(self.texts)}."}
         ]
         resp = await create_openai_completion(messages, model=GPT5Deployment.GPT_5_MINI)
-        return resp.choices[0].message.content or 0
+        try:
+            score = float(resp.choices[0].message.content.strip())
+        except Exception:
+            score = 0.0
+        return {"scores": [score]}
 
     # def execute(self) -> Dict:
     #     scores = []

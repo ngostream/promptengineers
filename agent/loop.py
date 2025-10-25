@@ -71,6 +71,7 @@ async def embed_and_cluster(min_cluster_size=2):
         vectors=vectors, 
         min_cluster_size=min_cluster_size
     )
+    print("Clustering results...")
     cluster_results = cluster_tool.execute()
     
     # cluster_results contains: {"labels": [...], "groups": {cluster_id: [indices]}}
@@ -99,7 +100,7 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
         if cluster_texts:
             print(f"[DEBUG] First text sample: {cluster_texts[0][:200]}")
         
-        sent_result = SimpleLexSentimentTool(
+        sent_result = await SimpleLexSentimentTool(
             reasoning="Analyzing sentiment of cluster texts to gauge overall tone",
             texts= cluster_texts     #[t[:500] for t in cluster_texts]  previous version
         ).execute()
@@ -108,8 +109,8 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
         
         summary = await summarize_cluster(cluster_texts, cid)
         
-        # TODO fix simple score: size + small boost for positive sentiment
-        score = min(100, int(len(idxs) * 6 + max(0, s_avg) * 5))
+        # using sentiment as score
+        score = s_avg
         srcs = [urls[i] for i in idxs if i < len(urls) and urls[i]]
         out.append({
             "cluster_id": cid, 
@@ -139,26 +140,6 @@ async def summarize_cluster(texts: List[str], cid: int) -> str:
     ]
     resp = await create_openai_completion(messages, model=GPT5Deployment.GPT_5_MINI)
     return resp.choices[0].message.content or ""
-
-async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[int, List[int]]):
-    out = []
-    for cid, idxs in clusters.items():
-        cluster_texts = [texts[i] for i in idxs]
-        sent_result = SimpleLexSentimentTool(
-            reasoning="Analyzing sentiment of cluster texts to gauge overall tone",
-            texts=[t[:500] for t in cluster_texts]
-        ).execute()
-        scores = sent_result.get("scores", [])
-        s_avg = (sum(scores)/max(1, len(scores))) if scores else 0
-        summary = ""
-        summary = await summarize_cluster(cluster_texts, cid)
-        # Simple score: size + small boost for positive sentiment
-        score = min(100, int(len(idxs) * 6 + max(0, s_avg) * 5))
-        srcs = [urls[i] for i in idxs if urls[i]]
-        out.append({"cluster_id": cid, "summary": summary, "score": score, "sources": list(dict.fromkeys(srcs))[:5]})
-    # Sort themes by score desc
-    out.sort(key=lambda x: x["score"], reverse=True)
-    return out
 
 async def write_report(topic: str, themes: List[Dict[str, Any]]) -> str:
     bullets = []
