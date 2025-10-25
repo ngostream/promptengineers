@@ -9,7 +9,7 @@ import streamlit as st
 from tools.search import WebSearchTool
 from tools.scrape import ScrapeUrlsTool
 from tools.embed_cluster import ClusterFromVectorsTool
-from tools.sentiment import SimpleLexSentimentTool, Cluster_Summarize_and_Score
+from tools.sentiment import Cluster_Summarize_and_Score
 from agent.prompts import SYSTEM_PLANNER, SYSTEM_REPORTER
 from unwrap_sdk import HF_MODEL, HF_API_KEY
 import numpy as np
