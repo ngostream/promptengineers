@@ -13,3 +13,4 @@ hdbscan
 transformers
 huggingface_hub
 plotly
+matplotlib
