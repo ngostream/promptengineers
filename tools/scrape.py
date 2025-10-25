@@ -97,12 +97,12 @@ class ScrapeUrlsTool(BaseModel):
     urls: List[str] = Field(..., description="List of URLs to fetch")
     timeout: int = Field(12, ge=3, le=60)
 
-    def _extract(self, url) -> str:
-        if check_url_platform(url) == "reddit":
+    def _extract(self, url, str_url) -> str:
+        if check_url_platform(str_url) == "reddit":
             comments = get_reddit_comments(url)
             if comments:
                 return comments
-        elif check_url_platform(url) == "amazon":
+        elif check_url_platform(str_url) == "amazon":
             reviews = scrape_amazon_reviews(url)
             if reviews:
                 return reviews
@@ -128,7 +128,7 @@ class ScrapeUrlsTool(BaseModel):
             try:
                 r = requests.get(u, timeout=self.timeout, headers={"User-Agent": "insight-scout/1.0"})
                 # if r.ok and r.text:
-                parsed_posts = self._extract(r)#[:20000]
+                parsed_posts = self._extract(r, u)#[:20000]
                 st.session_state.scraped_data['texts']+=parsed_posts
                 st.session_state.scraped_data['urls']+=[u]*len(parsed_posts)
                 valid_urls.append(u)
