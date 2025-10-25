@@ -9,12 +9,23 @@ class SimpleLexSentimentTool(BaseModel):
     texts: List[str]
 
     async def execute(self) -> Dict:
+        # Precompute the joined text to avoid f-string backslash issues
+        joined_text = "\n".join(self.texts)
         messages = [
-            {'role': "system", "content": "You analyze sentiment. The following text belongs to a single cluster, analyze the sentiment and return a numerical value, where:\
-             -1.0 is completely negative\
-             0.0 is completely neutral\
-             1.0 is completely positive. "},
-            {'role': "user", "content": f"Summarize the sentiment of these sentences: \n{'\n'.join(self.texts)}."}
+            {
+                "role": "system",
+                "content": (
+                    "You analyze sentiment. The following text belongs to a single cluster; "
+                    "return a single numeric score where:\n"
+                    "-1.0 is completely negative\n"
+                    "0.0 is completely neutral\n"
+                    "1.0 is completely positive."
+                ),
+            },
+            {
+                "role": "user",
+                "content": f"Summarize the sentiment of these sentences:\n{joined_text}.",
+            },
         ]
         resp = await create_openai_completion(messages, model=GPT5Deployment.GPT_5_MINI)
         try:
@@ -22,6 +33,7 @@ class SimpleLexSentimentTool(BaseModel):
         except Exception:
             score = 0.0
         return {"scores": [score]}
+
 
 def parse_output(tag: str, content: str) -> str:
     start_tag = f"<{tag}>"
@@ -31,6 +43,7 @@ def parse_output(tag: str, content: str) -> str:
     if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
         return content[start_idx + len(start_tag):end_idx].strip()
     return None
+
 
 class Cluster_Summarize_and_Score(BaseModel):
     """LLM."""
