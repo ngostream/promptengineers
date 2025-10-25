@@ -6,6 +6,7 @@ import streamlit as st
 
 class ScrapeUrlsTool(BaseModel):
     """Fetch and clean article text from a list of URLs."""
+    reasoning: str = Field(..., description="Reasoning process before calling tool")
     urls: List[str] = Field(..., description="List of URLs to fetch")
     timeout: int = Field(12, ge=3, le=60)
 

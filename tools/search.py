@@ -4,6 +4,7 @@ from ddgs import DDGS
 
 class WebSearchTool(BaseModel):
     """Search web for a topic and return result snippets and urls."""
+    reasoning: str = Field(..., description="Reasoning process before calling tool")
     query: str = Field(..., description="Search query")
     limit: int = Field(10, ge=1, le=25, description="Max results")
 

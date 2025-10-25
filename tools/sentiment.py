@@ -1,10 +1,10 @@
 from typing import List, Dict, ClassVar, Set
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class SimpleLexSentimentTool(BaseModel):
     """Very simple sentiment using a tiny lexicon (hackathon-fast)."""
+    reasoning: str = Field(..., description="Reasoning process before calling tool")
     texts: List[str]
-
     POS: ClassVar[Set[str]] = {"great","good","love","amazing","win","fast","improve","growth","rising","boost"}
     NEG: ClassVar[Set[str]] = {"bad","worse","hate","terrible","issue","bug","scam","falling","drop","risk"}
 

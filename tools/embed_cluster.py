@@ -6,6 +6,7 @@ import hdbscan
 
 class ClusterFromVectorsTool(BaseModel):
     """Cluster precomputed vectors and return groups (indices)."""
+    reasoning: str = Field(..., description="Reasoning process before calling tool")
     vectors: List[List[float]]
     min_cluster_size: int = Field(5, ge=2, le=50)
 
