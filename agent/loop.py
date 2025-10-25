@@ -9,7 +9,7 @@ import streamlit as st
 from tools.search import WebSearchTool
 from tools.scrape import ScrapeUrlsTool
 from tools.embed_cluster import ClusterFromVectorsTool
-from tools.sentiment import SimpleLexSentimentTool
+from tools.sentiment import SimpleLexSentimentTool, Cluster_Summarize_and_Score
 from agent.prompts import SYSTEM_PLANNER, SYSTEM_REPORTER
 from unwrap_sdk import HF_MODEL, HF_API_KEY
 
@@ -100,27 +100,36 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
         if cluster_texts:
             print(f"[DEBUG] First text sample: {cluster_texts[0][:200]}")
         
-        sent_result = await SimpleLexSentimentTool(
-            reasoning="Analyzing sentiment of cluster texts to gauge overall tone",
-            texts= cluster_texts     #[t[:500] for t in cluster_texts]  previous version
+        # sent_result = await SimpleLexSentimentTool(
+        #     reasoning="Analyzing sentiment of cluster texts to gauge overall tone",
+        #     texts= cluster_texts     #[t[:500] for t in cluster_texts]  previous version
+        # ).execute()
+
+        summary_result = await Cluster_Summarize_and_Score(
+            texts= cluster_texts,
+            original_prompt="General web search on the given topic"
         ).execute()
-        scores = sent_result.get("scores", [])
-        s_avg = (sum(scores)/max(1, len(scores))) if scores else 0
+        relevancy = float(summary_result.get("relevancy", 0))
+        sentiment = float(summary_result.get("sentiment", 0))
+        summary = summary_result.get("summary", "")
+        # scores = sent_result.get("scores", [])
+        # s_avg = (sum(scores)/max(1, len(scores))) if scores else 0
         
-        summary = await summarize_cluster(cluster_texts, cid)
+        # summary = await summarize_cluster(cluster_texts, cid)
         
         # using sentiment as score
-        score = s_avg
+        # score = s_avg
         srcs = [urls[i] for i in idxs if i < len(urls) and urls[i]]
         out.append({
             "cluster_id": cid, 
             "summary": summary, 
-            "score": score, 
+            "score": sentiment, 
+            "relevancy": relevancy,
             "sources": list(dict.fromkeys(srcs))[:5]
         })
     
     # sort themes by simple score desc
-    out.sort(key=lambda x: x["score"], reverse=True)
+    out.sort(key=lambda x: x["relevancy"], reverse=True)
     return out
 
 async def summarize_cluster(texts: List[str], cid: int) -> str:
