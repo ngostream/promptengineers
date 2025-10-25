@@ -3,7 +3,24 @@ from bs4 import BeautifulSoup
 from pydantic import BaseModel, Field
 from typing import List, Dict
 import streamlit as st
+from urllib.parse import urlparse
 
+def check_url_platform(url: str) -> str:
+    """
+    Returns 'amazon', 'reddit', or 'other' based on the URL.
+    """
+    try:
+        hostname = urlparse(url).hostname or ""
+        hostname = hostname.lower()
+        if "amazon." in hostname:
+            return "amazon"
+        elif "reddit." in hostname:
+            return "reddit"
+        else:
+            return "other"
+    except Exception:
+        return "other"
+    
 #create custom scrapers for each valid site
 def get_reddit_comments(url: str):
     """Return all comments and replies from a Reddit post JSON."""
@@ -80,12 +97,29 @@ class ScrapeUrlsTool(BaseModel):
     urls: List[str] = Field(..., description="List of URLs to fetch")
     timeout: int = Field(12, ge=3, le=60)
 
-    def _extract(self, html: str) -> str:
+    def _extract(self, url) -> str:
+        if check_url_platform(url) == "reddit":
+            comments = get_reddit_comments(url)
+            if comments:
+                return comments
+        elif check_url_platform(url) == "amazon":
+            reviews = scrape_amazon_reviews(url)
+            if reviews:
+                return reviews
+        html = url.text
         soup = BeautifulSoup(html, "lxml")
         for tag in soup(["script", "style", "noscript", "header", "footer", "nav"]):
             tag.decompose()
-        text = re.sub(r"\s+", " ", soup.get_text(" ").strip())
-        return text
+        chunks = []
+        seen_texts = set()
+
+        # Collect all <p> and <span> text
+        for el in soup.find_all(["p", "span"]):
+            text = el.get_text(" ", strip=True)
+            if text and text not in seen_texts:
+                seen_texts.add(text)
+                chunks.append(text)
+        return chunks
 
     def execute(self) -> Dict:
         docs = []
@@ -94,11 +128,11 @@ class ScrapeUrlsTool(BaseModel):
         for u in self.urls:
             try:
                 r = requests.get(u, timeout=self.timeout, headers={"User-Agent": "insight-scout/1.0"})
-                if r.ok and r.text:
-                    parsed_posts = self._extract(r.text)#[:20000]
-                    docs.append({"url": u, "posts": parsed_posts})
-                    valid_urls.append(u)
-                    n_parsed_posts+=len(parsed_posts)
+                # if r.ok and r.text:
+                parsed_posts = self._extract(r)#[:20000]
+                docs.append({"url": u, "posts": parsed_posts})
+                valid_urls.append(u)
+                n_parsed_posts+=len(parsed_posts)
             except Exception:
                 continue
         st.session_state.scraped_data += docs
