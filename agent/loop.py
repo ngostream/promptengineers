@@ -101,7 +101,7 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
         
         sent_result = SimpleLexSentimentTool(
             reasoning="Analyzing sentiment of cluster texts to gauge overall tone",
-            texts=[t[:500] for t in cluster_texts]
+            texts= cluster_texts     #[t[:500] for t in cluster_texts]  previous version
         ).execute()
         scores = sent_result.get("scores", [])
         s_avg = (sum(scores)/max(1, len(scores))) if scores else 0
@@ -124,11 +124,12 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
 
 async def summarize_cluster(texts: List[str], cid: int) -> str:
     # Summarize a cluster with GPT-5-MINI
-    joined = "\n".join(t[:500] for t in texts[:12])
+
+    joined = "\n".join(texts) #summarize all text from the entire cluster
     contentString = ""
     if cid == -1:
         contentString = "This is a list of responses that don't categorize into any clusters. \
-                        Summarize this list into: Title + 4 bullets + 1-sentence why-it-matters. When summarizing, keep in mind that\
+                        You summarize clusters into: Title + 4 bullets + 1-sentence why-it-matters. When summarizing, keep in mind that\
                         these do not belong to any clusters, and may be anomalies."
     else:
         contentString = "You summarize clusters into: Title + 4 bullets + 1-sentence why-it-matters."
