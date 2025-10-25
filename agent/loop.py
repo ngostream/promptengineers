@@ -5,6 +5,7 @@ from unwrap_sdk import (
     create_openai_completion, create_embeddings, execute_tool_call,
     GPT5Deployment
 )
+import streamlit as st
 from tools.search import WebSearchTool
 from tools.scrape import ScrapeUrlsTool
 from tools.embed_cluster import ClusterFromVectorsTool
@@ -65,13 +66,14 @@ async def collect_items(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     print(f"[DEBUG] collect_items found {len(items)} total items")
     return items
 
-async def embed_and_cluster(items, min_cluster_size=2):
+async def embed_and_cluster(min_cluster_size=2):
     """
     Embeds item texts and clusters the vectors.
     Returns dict with texts, urls, and cluster results.
     """
-    texts = [i.get("body", "") or i.get("text", "") for i in items]
-    urls = [i.get("url") for i in items]
+    items = st.session_state.scraped_data # list of dicts with 'url' and 'texts' keys
+    texts = items.get('texts', [])
+    urls = items.get('urls', [])
     
     # get embeddings using HF Inference Providers API
     vectors = await create_embeddings(
@@ -79,6 +81,9 @@ async def embed_and_cluster(items, min_cluster_size=2):
         model=HF_MODEL,
         api_key=HF_API_KEY
     )
+    st.session_state.scraped_embeddings['texts'] += texts
+    st.session_state.scraped_embeddings['urls'] += urls
+    st.session_state.scraped_embeddings['vectors'] += vectors
     
     # cluster vectors with required reasoning field
     cluster_tool = ClusterFromVectorsTool(
@@ -224,7 +229,7 @@ async def run_insight_scout(topic: str) -> Dict[str, Any]:
         return {"topic": topic, "themes": [], "report": "No items found. Try another topic or broader query."}
 
     # 4) Embed + cluster in parallel (max 5 parallel calls allowed)
-    ec = await embed_and_cluster(items, min_cluster_size=2)
+    ec = await embed_and_cluster(min_cluster_size=2)
     print(f"[DEBUG] Embedding and clustering complete. Number of clusters: {len(ec['clusters'])}")
 
     # 5) Summarize clusters + score
