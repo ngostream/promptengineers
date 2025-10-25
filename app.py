@@ -7,8 +7,8 @@ if 'scraped_data' not in st.session_state:
 if 'scraped_embeddings' not in st.session_state:
     st.session_state.scraped_embeddings = {'texts':[],'urls':[], 'vectors':[]}
 
-st.set_page_config(page_title="Insight Scout", layout="wide")
-st.title("Insight Scout - Autonomous Research Agent")
+st.set_page_config(page_title="Insight Agent", layout="wide")
+st.title("Insight Agent - Autonomous Research Agent")
 
 q = st.text_input("Topic", value="electric bikes this week")
 run = st.button("Run Agent")
