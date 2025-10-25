@@ -46,26 +46,6 @@ async def act_until_no_tools(messages, resp) -> Dict[str, Any]:
         )
     return {"messages": messages, "resp": resp}
 
-async def collect_items(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    items: List[Dict[str, Any]] = []
-    for m in messages:
-        if m.get("role") == "tool":
-            try:
-                payload = json.loads(m.get("content", "{}"))
-            except Exception:
-                continue
-            data = payload.get("data", {})  # <-- fix: look inside 'data'
-            
-            # WebSearchTool format
-            for r in data.get("results", []):
-                items.append({"title": r.get("title"), "body": r.get("body"), "url": r.get("href")})
-            
-            # ScrapeUrlsTool format
-            for d in data.get("docs", []):
-                items.append({"title": None, "body": d.get("text"), "url": d.get("url")})
-    print(f"[DEBUG] collect_items found {len(items)} total items")
-    return items
-
 async def embed_and_cluster(min_cluster_size=2):
     """
     Embeds item texts and clusters the vectors.
@@ -220,13 +200,6 @@ async def run_insight_scout(topic: str) -> Dict[str, Any]:
     step = await act_until_no_tools(messages, resp)
     messages = step["messages"]
     print(f"[DEBUG] Tool execution loop complete. Total messages: {len(messages)}")
-
-    # 3) Collect items (from search + scrape)
-    items = await collect_items(messages)
-    print(f"[DEBUG] Collected items: {len(items)}")
-    if not items:
-        print("[DEBUG] No items found after collection!")
-        return {"topic": topic, "themes": [], "report": "No items found. Try another topic or broader query."}
 
     # 4) Embed + cluster in parallel (max 5 parallel calls allowed)
     ec = await embed_and_cluster(min_cluster_size=2)
