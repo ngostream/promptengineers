@@ -5,11 +5,10 @@ beautifulsoup4
 lxml
 readability-lxml
 requests
-tqdm
 pydantic
 python-dotenv
 numpy
 scikit-learn
 hdbscan
-faiss-cpu
-sentence-transformers
+transformers
+huggingface_hub
