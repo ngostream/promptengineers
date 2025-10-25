@@ -122,7 +122,6 @@ class ScrapeUrlsTool(BaseModel):
         return chunks
 
     def execute(self) -> Dict:
-        docs = []
         valid_urls = []
         n_parsed_posts = 0
         for u in self.urls:
@@ -130,10 +129,10 @@ class ScrapeUrlsTool(BaseModel):
                 r = requests.get(u, timeout=self.timeout, headers={"User-Agent": "insight-scout/1.0"})
                 # if r.ok and r.text:
                 parsed_posts = self._extract(r)#[:20000]
-                docs.append({"url": u, "posts": parsed_posts})
+                st.session_state.scraped_data['texts']+=parsed_posts
+                st.session_state.scraped_data['urls']+=[u]*len(parsed_posts)
                 valid_urls.append(u)
                 n_parsed_posts+=len(parsed_posts)
             except Exception:
                 continue
-        st.session_state.scraped_data += docs
-        return {'valid_scraped_urls': valid_urls, 'number_of_parsed_posts': n_parsed_posts}
+        return {'valid_scraped_urls': valid_urls, 'number_of_scraped_chunks': n_parsed_posts}

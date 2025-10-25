@@ -3,9 +3,9 @@ import asyncio
 from agent.loop import run_insight_scout
 
 if 'scraped_data' not in st.session_state:
-    st.session_state.scraped_data = []
+    st.session_state.scraped_data = {'texts':[],'urls':[]}
 if 'scraped_embeddings' not in st.session_state:
-    st.session_state.scraped_embeddings = []
+    st.session_state.scraped_embeddings = {'texts':[],'urls':[], 'vectors':[]}
 
 st.set_page_config(page_title="Insight Scout", layout="wide")
 st.title("🔎 Insight Scout - Autonomous Research Agent")
