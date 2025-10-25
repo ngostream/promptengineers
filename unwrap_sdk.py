@@ -75,13 +75,16 @@ async def create_openai_completion(
 
 # --- Embeddings ---
 async def create_embeddings(inputs: List[str], model: str = "text-embedding-3-small") -> List[List[float]]:
-    client = get_client()
-    out: List[List[float]] = []
-    for i in range(0, len(inputs), 100):
-        chunk = inputs[i:i+100]
-        resp = await _with_retries(lambda: client.embeddings.create(model=model, input=chunk))
-        out.extend([d.embedding for d in resp.data])
-    return out
+    # UNCOMMENT ONCE EMBEDDINGS ARE FIGURED OUT
+    # client = get_client()
+    # out: List[List[float]] = []
+    # for i in range(0, len(inputs), 100):
+    #     chunk = inputs[i:i+100]
+    #     resp = await _with_retries(lambda: client.embeddings.create(model=model, input=chunk))
+    #     out.extend([d.embedding for d in resp.data])
+    # return out
+    print("[DEBUG] Mocking embeddings because deployment is missing")
+    return [[0.1 * (i+1) for _ in range(5)] for i in range(len(inputs))]
 
 # --- Tool execution ---
 def execute_tool_call(tool_call, available_tools: Dict[str, Type[BaseModel]]) -> Dict[str, Any]:
