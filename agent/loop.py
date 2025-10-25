@@ -12,7 +12,6 @@ from tools.embed_cluster import ClusterFromVectorsTool
 from tools.sentiment import Cluster_Summarize_and_Score
 from agent.prompts import SYSTEM_PLANNER, SYSTEM_REPORTER
 from unwrap_sdk import HF_MODEL, HF_API_KEY
-import numpy as np
 
 AVAILABLE = {
     "WebSearchTool": WebSearchTool,
@@ -29,14 +28,16 @@ async def plan(topic: str) -> Dict[str, Any]:
     )
     return {"messages": messages, "resp": resp}
 
-async def act_until_no_tools(messages, resp) -> Dict[str, Any]:
+async def act_until_no_tools(messages, resp, log) -> Dict[str, Any]:
     # Execute any tool calls from model and append results; allow search + scrape
     while True:
         msg = resp.choices[0].message
+        log(msg)
         if not msg.tool_calls:
             break
         for call in msg.tool_calls:
             result = execute_tool_call(call, AVAILABLE)
+            log(json.dumps(result))
             messages.append({"role": "assistant", "tool_calls": [call]})
             messages.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(result)})
         resp = await create_openai_completion(
@@ -47,7 +48,7 @@ async def act_until_no_tools(messages, resp) -> Dict[str, Any]:
         )
     return {"messages": messages, "resp": resp}
 
-async def embed_and_cluster(min_cluster_size=2):
+async def embed_and_cluster(min_cluster_size=2, log = print):
     """
     Embeds item texts and clusters the vectors.
     Returns dict with texts, urls, and cluster results.
@@ -73,11 +74,11 @@ async def embed_and_cluster(min_cluster_size=2):
         min_cluster_size=min_cluster_size
     )
     print("Clustering results...")
+    log("Clustering results...")
     cluster_results = cluster_tool.execute()
     
     # cluster_results contains: {"labels": [...], "groups": {cluster_id: [indices]}}
     # return with 'clusters' key for backward compatibility
-    print(f"[DEBUG] Embedding output shape: {np.array(vectors).shape}")
     return {
         "texts": texts, 
         "urls": urls, 
@@ -85,7 +86,7 @@ async def embed_and_cluster(min_cluster_size=2):
     }
 
 
-async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[str, Any], relevancy_threshold: float = 0.5):
+async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[str, Any], relevancy_threshold: float = 0.5, log = print):
     """
     Summarize each cluster with sentiment analysis and scoring.
     clusters should be the dict with "groups" and "labels" keys.
@@ -99,9 +100,10 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
         
         # debug output
         print(f"[DEBUG] Cluster {cid}: {len(idxs)} items")
+        log(f"Cluster {cid}: {len(idxs)} items")
         if cluster_texts:
             print(f"[DEBUG] First text sample: {cluster_texts[0][:200]}")
-        
+            log(f"First text sample: {cluster_texts[0][:200]}")
         # sent_result = await SimpleLexSentimentTool(
         #     reasoning="Analyzing sentiment of cluster texts to gauge overall tone",
         #     texts= cluster_texts     #[t[:500] for t in cluster_texts]  previous version
@@ -114,6 +116,7 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
         relevancy = float(summary_result.get("relevancy", 0))
         sentiment = float(summary_result.get("sentiment", 0))
         summary = summary_result.get("summary", "")
+        log(f"Cluster {cid} summary: {summary[:200]}... Relevancy: {relevancy}, Sentiment: {sentiment}")
         # scores = sent_result.get("scores", [])
         # s_avg = (sum(scores)/max(1, len(scores))) if scores else 0
         
@@ -165,7 +168,13 @@ async def write_report(topic: str, themes: List[Dict[str, Any]]) -> str:
     resp = await create_openai_completion(messages, model=GPT5Deployment.GPT_5)
     return resp.choices[0].message.content or ""
 
-async def run_insight_scout(topic: str) -> Dict[str, Any]:
+async def run_insight_scout(topic: str, log_fn = None) -> Dict[str, Any]:
+    def log(msg):
+        if log_fn:
+            log_fn(msg)
+        else:
+            print(msg)
+
     print(f"[DEBUG] Starting Insight Scout for topic: {topic}")
     
     # 1) Plan → initial search
@@ -176,35 +185,41 @@ async def run_insight_scout(topic: str) -> Dict[str, Any]:
     # Manual search if model didn't call tools
     if not resp.choices[0].message.tool_calls:
         print("[DEBUG] No tool calls from model. Running manual search...")
+        log('No tool calls from model. Running manual search...')
         search_tool = WebSearchTool(query=topic, reasoning="Manual search", limit=10)
         search_results = search_tool.execute()
         print(f"[DEBUG] Manual search results: {len(search_results.get('results', []))} items")
+        log(f"Manual search results: {len(search_results.get('results', []))} items")
         messages.append({"role": "tool", "tool_call_id": "manual_search", "content": json.dumps(search_results)})
 
         hrefs = [r["href"] for r in search_results.get("results", []) if r.get("href")]
         if hrefs:
             print(f"[DEBUG] Running manual scrape on {len(hrefs[:8])} URLs")
+            log(f"Running manual scrape on {len(hrefs[:8])} URLs")
             scrape_tool = ScrapeUrlsTool(urls=hrefs[:8])
             scrape_results = scrape_tool.execute()
             print(f"[DEBUG] Manual scrape results: {len(scrape_results.get('docs', []))} docs")
+            log(f"Manual scrape results: {len(scrape_results.get('docs', []))} docs")
             messages.append({"role": "tool", "tool_call_id": "manual_scrape", "content": json.dumps(scrape_results)})
 
     # 2) Let the model call tools (search first; it may then ask to scrape)
-    step = await act_until_no_tools(messages, resp)
+    step = await act_until_no_tools(messages, resp, log)
     messages = step["messages"]
     print(f"[DEBUG] Tool execution loop complete. Total messages: {len(messages)}")
 
     # 4) Embed + cluster in parallel (max 5 parallel calls allowed)
-    print(f"[DEBUG] Number of texts before embedding: {len(st.session_state.scraped_data.get('texts', []))}")
-    ec = await embed_and_cluster(min_cluster_size=2)
+    ec = await embed_and_cluster(min_cluster_size=2, log = log)
     print(f"[DEBUG] Embedding and clustering complete. Number of clusters: {len(ec['clusters'])}")
+    log(f"Embedding and clustering complete. Number of clusters: {len(ec['clusters'])}")
 
     # 5) Summarize clusters + score
-    themes = await summarize_clusters(ec["texts"], ec["urls"], ec["clusters"])
+    themes = await summarize_clusters(ec["texts"], ec["urls"], ec["clusters"], log)
     print(f"[DEBUG] Summarization complete. Number of themes: {len(themes)}")
+    log(f"Summarization complete. Number of themes: {len(themes)}")
 
     # 6) Final report
     report = await write_report(topic, themes)
     print(f"[DEBUG] Report generated. Length: {len(report)} characters")
+    log(f"Report generated. Length: {len(report)} characters")
 
     return {"topic": topic, "themes": themes, "report": report}
