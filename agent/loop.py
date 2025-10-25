@@ -89,7 +89,7 @@ async def embed_and_cluster(min_cluster_size=2, log = print):
     }
 
 
-async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[str, Any], relevancy_threshold: float = 0.5, log = print):
+async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[str, Any], original_prompt: str, relevancy_threshold: float = 0.5, log = print):
     """
     Summarize each cluster with sentiment analysis and scoring.
     clusters should be the dict with "groups" and "labels" keys.
@@ -114,7 +114,7 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
 
         summary_result = await Cluster_Summarize_and_Score(
             texts= cluster_texts,
-            original_prompt="General web search on the given topic"
+            original_prompt=original_prompt
         ).execute()
         relevancy = float(summary_result.get("relevancy", 0))
         sentiment = float(summary_result.get("sentiment", 0))
@@ -216,7 +216,7 @@ async def run_insight_scout(topic: str, log_fn = None) -> Dict[str, Any]:
     log(f"Embedding and clustering complete. Number of clusters: {len(ec['clusters'])}")
 
     # 5) Summarize clusters + score
-    themes = await summarize_clusters(ec["texts"], ec["urls"], ec["clusters"], log = log)
+    themes = await summarize_clusters(ec["texts"], ec["urls"], ec["clusters"], original_prompt = topic, log = log)
     print(f"[DEBUG] Summarization complete. Number of themes: {len(themes)}")
     log(f"Summarization complete. Number of themes: {len(themes)}")
 
