@@ -38,11 +38,11 @@ def add_log(msg: str):
 async def run_agent(topic):
     """Run the agent asynchronously with real-time logging."""
     st.session_state.logs.clear()
-    add_log(f"🚀 Starting research on '{topic}'...")
+    add_log(f"Starting research on '{topic}'...")
 
     result = await run_insight_scout(topic, log_fn=add_log)
 
-    add_log("✅ Agent run complete.")
+    add_log("Agent run complete.")
     return result
 
 
