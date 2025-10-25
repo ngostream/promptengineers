@@ -2,6 +2,7 @@ import re, requests
 from bs4 import BeautifulSoup
 from pydantic import BaseModel, Field
 from typing import List, Dict
+import streamlit as st
 
 class ScrapeUrlsTool(BaseModel):
     """Fetch and clean article text from a list of URLs."""
@@ -17,11 +18,17 @@ class ScrapeUrlsTool(BaseModel):
 
     def execute(self) -> Dict:
         docs = []
+        valid_urls = []
+        n_parsed_posts = 0
         for u in self.urls:
             try:
                 r = requests.get(u, timeout=self.timeout, headers={"User-Agent": "insight-scout/1.0"})
                 if r.ok and r.text:
-                    docs.append({"url": u, "text": self._extract(r.text)[:20000]})
+                    parsed_posts = self._extract(r.text)#[:20000]
+                    docs.append({"url": u, "posts": parsed_posts})
+                    valid_urls.append(u)
+                    n_parsed_posts+=len(parsed_posts)
             except Exception:
                 continue
-        return {"docs": docs}
+        st.session_state.scraped_data += docs
+        return {'valid_scraped_urls': valid_urls, 'number_of_parsed_posts': n_parsed_posts}

@@ -2,6 +2,11 @@ import streamlit as st
 import asyncio
 from agent.loop import run_insight_scout
 
+if 'scraped_data' not in st.session_state:
+    st.session_state.scraped_data = []
+if 'scraped_embeddings' not in st.session_state:
+    st.session_state.scraped_embeddings = []
+
 st.set_page_config(page_title="Insight Scout", layout="wide")
 st.title("🔎 Insight Scout - Autonomous Research Agent")
 
