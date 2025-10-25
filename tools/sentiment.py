@@ -1,12 +1,17 @@
-from typing import List, Dict
+from typing import List, Dict, ClassVar, Set
 from pydantic import BaseModel
 
 class SimpleLexSentimentTool(BaseModel):
     """Very simple sentiment using a tiny lexicon (hackathon-fast)."""
     texts: List[str]
 
-    POS = {"great","good","love","amazing","win","fast","improve","growth","rising","boost"}
-    NEG = {"bad","worse","hate","terrible","issue","bug","scam","falling","drop","risk"}
+    # Mark these as class-level constants so Pydantic won't treat them as fields
+    POS: ClassVar[Set[str]] = {
+        "great","good","love","amazing","win","fast","improve","growth","rising","boost"
+    }
+    NEG: ClassVar[Set[str]] = {
+        "bad","worse","hate","terrible","issue","bug","scam","falling","drop","risk"
+    }
 
     def execute(self) -> Dict:
         scores = []
