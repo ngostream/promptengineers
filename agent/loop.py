@@ -12,6 +12,7 @@ from tools.embed_cluster import ClusterFromVectorsTool
 from tools.sentiment import SimpleLexSentimentTool, Cluster_Summarize_and_Score
 from agent.prompts import SYSTEM_PLANNER, SYSTEM_REPORTER
 from unwrap_sdk import HF_MODEL, HF_API_KEY
+import numpy as np
 
 AVAILABLE = {
     "WebSearchTool": WebSearchTool,
@@ -76,6 +77,7 @@ async def embed_and_cluster(min_cluster_size=2):
     
     # cluster_results contains: {"labels": [...], "groups": {cluster_id: [indices]}}
     # return with 'clusters' key for backward compatibility
+    print(f"[DEBUG] Embedding output shape: {np.array(vectors).shape}")
     return {
         "texts": texts, 
         "urls": urls, 
@@ -193,6 +195,7 @@ async def run_insight_scout(topic: str) -> Dict[str, Any]:
     print(f"[DEBUG] Tool execution loop complete. Total messages: {len(messages)}")
 
     # 4) Embed + cluster in parallel (max 5 parallel calls allowed)
+    print(f"[DEBUG] Number of texts before embedding: {len(st.session_state.scraped_data.get('texts', []))}")
     ec = await embed_and_cluster(min_cluster_size=2)
     print(f"[DEBUG] Embedding and clustering complete. Number of clusters: {len(ec['clusters'])}")
 
