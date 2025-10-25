@@ -68,6 +68,7 @@ async def embed_and_cluster(items: List[Dict[str, Any]], min_cluster_size=2) -> 
     # Prefer full text when available, else snippet/title
     texts = [ (i.get("body") or i.get("title") or "").strip() for i in items ]
     urls = [ i.get("url") for i in items ]
+    #parallel in create_embeddings
     vectors = await create_embeddings(texts)
     clusters = ClusterFromVectorsTool(vectors=vectors, min_cluster_size=min_cluster_size).execute()["groups"]
     return {"texts": texts, "urls": urls, "clusters": clusters}
@@ -154,7 +155,7 @@ async def run_insight_scout(topic: str) -> Dict[str, Any]:
         print("[DEBUG] No items found after collection!")
         return {"topic": topic, "themes": [], "report": "No items found. Try another topic or broader query."}
 
-    # 4) Embed + cluster
+    # 4) Embed + cluster in parallel (max 5 parallel calls allowed)
     ec = await embed_and_cluster(items, min_cluster_size=2)
     print(f"[DEBUG] Embedding and clustering complete. Number of clusters: {len(ec['clusters'])}")
 

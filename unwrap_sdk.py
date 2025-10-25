@@ -38,11 +38,11 @@ def get_client() -> AsyncAzureOpenAI:
     return _client
 
 # --- Retry wrapper ---
-async def _with_retries(coro_factory, *, max_attempts=4, base_delay=0.6):
+async def _with_retries(funkshun, *, max_attempts=4, base_delay=0.6):
     attempt = 0
     while True:
         try:
-            return await coro_factory()
+            return await funkshun()
         except Exception as e:
             attempt += 1
             if attempt >= max_attempts:
@@ -85,6 +85,38 @@ async def create_embeddings(inputs: List[str], model: str = "text-embedding-3-sm
     # return out
     print("[DEBUG] Mocking embeddings because deployment is missing")
     return [[0.1 * (i+1) for _ in range(5)] for i in range(len(inputs))]
+    client = get_client()
+    batch_size = 100
+    max_concurrency = 5
+    sem = asyncio.Semaphore(max_concurrency)
+
+    chunks = [inputs[i:i+batch_size] for i in range(0, len(inputs), batch_size)]
+
+    async def concChunk(chunk: List[str]):
+        async with sem: 
+            return await _with_retries(lambda: client.embeddings.create(model=model, input=chunk))
+
+    tasks = [
+        #lambad chunk=chunk:
+        concChunk(chunk)
+        for chunk in chunks
+    ]
+
+    responses = await asyncio.gather(*tasks, return_exceptions= True)
+
+    failures= [i for i,r in enumerate(responses) if isinstance(r, Exception)]
+    
+    for failIndex in failures:
+        try:
+            responses[failIndex] = await concChunk(chunks[failIndex])
+        except Exception as e:
+            print(f"Chunk {failIndex} failed, with {e}")
+    
+    out: List[List[float]] = []
+    for resp in responses:
+        if not isinstance(resp, Exception):
+            out.extend([d.embedding for d in resp.data])
+    return out
 
 # --- Tool execution ---
 def execute_tool_call(tool_call, available_tools: Dict[str, Type[BaseModel]]) -> Dict[str, Any]:
