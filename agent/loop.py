@@ -72,11 +72,18 @@ async def embed_and_cluster(items: List[Dict[str, Any]], min_cluster_size=2) -> 
     clusters = ClusterFromVectorsTool(vectors=vectors, min_cluster_size=min_cluster_size).execute()["groups"]
     return {"texts": texts, "urls": urls, "clusters": clusters}
 
-async def summarize_cluster(texts: List[str]) -> str:
+async def summarize_cluster(texts: List[str], cid: int) -> str:
     # Summarize a cluster with GPT-5-MINI
     joined = "\n".join(t[:500] for t in texts[:12])
+    contentString = ""
+    if cid == -1:
+        contentString = "This is a list of responses that don't categorize into any clusters. \
+                        Summarize this list into: Title + 4 bullets + 1-sentence why-it-matters. When summarizing, keep in mind that\
+                        these do not belong to any clusters, and may be anomalies."
+    else:
+        contentString = "You summarize clusters into: Title + 4 bullets + 1-sentence why-it-matters."
     messages = [
-        {"role": "system", "content": "You summarize clusters into: Title + 4 bullets + 1-sentence why-it-matters."},
+        {"role": "system", "content": contentString},
         {"role": "user", "content": f"Summarize these items:\n{joined}"}
     ]
     resp = await create_openai_completion(messages, model=GPT5Deployment.GPT_5_MINI)
@@ -88,7 +95,8 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[i
         cluster_texts = [texts[i] for i in idxs]
         sent = SimpleLexSentimentTool(texts=[t[:500] for t in cluster_texts]).execute()["scores"]
         s_avg = (sum(sent)/max(1,len(sent))) if sent else 0
-        summary = await summarize_cluster(cluster_texts)
+        summary = ""
+        summary = await summarize_cluster(cluster_texts, cid)
         # Simple score: size + small boost for positive sentiment
         score = min(100, int(len(idxs) * 6 + max(0, s_avg) * 5))
         srcs = [urls[i] for i in idxs if urls[i]]
