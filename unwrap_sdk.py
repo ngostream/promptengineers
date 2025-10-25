@@ -5,11 +5,15 @@ from openai import AsyncAzureOpenAI, pydantic_function_tool
 from openai.types.chat import ChatCompletion
 from enum import Enum
 from dotenv import load_dotenv
+from typing import List
+import httpx
 
 load_dotenv()
 
 endpoint = "https://unwrap-hackathon-oct-20-resource.cognitiveservices.azure.com/"
 subscription_key = os.getenv("SUBSCRIPTION_KEY")
+HF_API_KEY = os.getenv("HF_API_KEY")
+HF_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 class GPT5Deployment(str, Enum):
     GPT_5_NANO = "gpt-5-nano"
@@ -74,48 +78,64 @@ async def create_openai_completion(
         return await _with_retries(lambda: client.chat.completions.create(**params))
 
 # --- Embeddings ---
-async def create_embeddings(inputs: List[str], model: str = "text-embedding-3-small") -> List[List[float]]:
-    # UNCOMMENT ONCE EMBEDDINGS ARE FIGURED OUT
-    # client = get_client()
-    # out: List[List[float]] = []
-    # for i in range(0, len(inputs), 100):
-    #     chunk = inputs[i:i+100]
-    #     resp = await _with_retries(lambda: client.embeddings.create(model=model, input=chunk))
-    #     out.extend([d.embedding for d in resp.data])
-    # return out
-    print("[DEBUG] Mocking embeddings because deployment is missing")
-    return [[0.1 * (i+1) for _ in range(5)] for i in range(len(inputs))]
-    client = get_client()
-    batch_size = 100
+async def create_embeddings(
+    inputs: List[str],
+    model: str = "sentence-transformers/all-MiniLM-L6-v2",
+    api_key: str | None = None,
+) -> List[List[float]]:
+    """Create embeddings using Hugging Face Inference API with parallel processing."""
+    try:
+        from huggingface_hub import InferenceClient
+    except ImportError:
+        raise ImportError("huggingface_hub is required. Install with: pip install huggingface_hub")
+    
+    if not api_key:
+        raise ValueError("HF_API_KEY is required")
+    
+    client = InferenceClient(api_key=api_key)
+    batch_size = 20
     max_concurrency = 5
     sem = asyncio.Semaphore(max_concurrency)
-
-    chunks = [inputs[i:i+batch_size] for i in range(0, len(inputs), batch_size)]
-
-    async def concChunk(chunk: List[str]):
-        async with sem: 
-            return await _with_retries(lambda: client.embeddings.create(model=model, input=chunk))
-
-    tasks = [
-        #lambad chunk=chunk:
-        concChunk(chunk)
-        for chunk in chunks
-    ]
-
-    responses = await asyncio.gather(*tasks, return_exceptions= True)
-
-    failures= [i for i,r in enumerate(responses) if isinstance(r, Exception)]
     
-    for failIndex in failures:
-        try:
-            responses[failIndex] = await concChunk(chunks[failIndex])
-        except Exception as e:
-            print(f"Chunk {failIndex} failed, with {e}")
+    chunks = [inputs[i:i+batch_size] for i in range(0, len(inputs), batch_size)]
+    
+    async def process_chunk(chunk: List[str]) -> List[List[float]]:
+        async with sem:
+            vectors = []
+            for text in chunk:
+                embedding = client.feature_extraction(text=text, model=model)
+                
+                try:
+                    import numpy as np
+                    if isinstance(embedding, np.ndarray):
+                        embedding = embedding.tolist()
+                except ImportError:
+                    pass
+                
+                if isinstance(embedding, list):
+                    if len(embedding) > 0 and isinstance(embedding[0], list):
+                        vec = [sum(vals) / len(vals) for vals in zip(*embedding)]
+                    elif len(embedding) > 0:
+                        vec = embedding
+                    else:
+                        raise RuntimeError("Empty embedding")
+                else:
+                    raise RuntimeError(f"Unexpected embedding type: {type(embedding)}")
+                
+                vectors.append(vec)
+            return vectors
+    
+    tasks = [process_chunk(chunk) for chunk in chunks]
+    responses = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    failures = [i for i, r in enumerate(responses) if isinstance(r, Exception)]
+    for fail_idx in failures:
+        responses[fail_idx] = await process_chunk(chunks[fail_idx])
     
     out: List[List[float]] = []
     for resp in responses:
         if not isinstance(resp, Exception):
-            out.extend([d.embedding for d in resp.data])
+            out.extend(resp)
     return out
 
 # --- Tool execution ---
@@ -161,7 +181,11 @@ async def main():
         print("Tool result:", result)
 
     # Embeddings
-    embeddings = await create_embeddings(["Hello world", "Azure OpenAI is awesome"])
+    embeddings = await create_embeddings(
+        ["Hello world", "Azure OpenAI is awesome"],
+        model=HF_MODEL,
+        api_key=HF_API_KEY
+    )
     print("Embeddings shape:", len(embeddings), "x", len(embeddings[0]))
 
 if __name__ == "__main__":

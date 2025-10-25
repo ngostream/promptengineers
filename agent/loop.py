@@ -10,6 +10,7 @@ from tools.scrape import ScrapeUrlsTool
 from tools.embed_cluster import ClusterFromVectorsTool
 from tools.sentiment import SimpleLexSentimentTool
 from agent.prompts import SYSTEM_PLANNER, SYSTEM_REPORTER
+from unwrap_sdk import HF_MODEL, HF_API_KEY
 
 AVAILABLE = {
     "WebSearchTool": WebSearchTool,
@@ -64,14 +65,77 @@ async def collect_items(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     print(f"[DEBUG] collect_items found {len(items)} total items")
     return items
 
-async def embed_and_cluster(items: List[Dict[str, Any]], min_cluster_size=2) -> Dict[str, Any]:
-    # Prefer full text when available, else snippet/title
-    texts = [ (i.get("body") or i.get("title") or "").strip() for i in items ]
-    urls = [ i.get("url") for i in items ]
-    #parallel in create_embeddings
-    vectors = await create_embeddings(texts)
-    clusters = ClusterFromVectorsTool(vectors=vectors, min_cluster_size=min_cluster_size).execute()["groups"]
-    return {"texts": texts, "urls": urls, "clusters": clusters}
+async def embed_and_cluster(items, min_cluster_size=2):
+    """
+    Embeds item texts and clusters the vectors.
+    Returns dict with texts, urls, and cluster results.
+    """
+    texts = [i.get("body", "") or i.get("text", "") for i in items]
+    urls = [i.get("url") for i in items]
+    
+    # get embeddings using HF Inference Providers API
+    vectors = await create_embeddings(
+        inputs=texts,
+        model=HF_MODEL,
+        api_key=HF_API_KEY
+    )
+    
+    # cluster vectors with required reasoning field
+    cluster_tool = ClusterFromVectorsTool(
+        reasoning="Clustering article embeddings to identify common themes and group similar content",
+        vectors=vectors, 
+        min_cluster_size=min_cluster_size
+    )
+    cluster_results = cluster_tool.execute()
+    
+    # cluster_results contains: {"labels": [...], "groups": {cluster_id: [indices]}}
+    # return with 'clusters' key for backward compatibility
+    return {
+        "texts": texts, 
+        "urls": urls, 
+        "clusters": cluster_results  # pass the entire cluster_results dict
+    }
+
+
+async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[str, Any]):
+    """
+    Summarize each cluster with sentiment analysis and scoring.
+    clusters should be the dict with "groups" and "labels" keys.
+    """
+    out = []
+    # extract the groups dict from clusters
+    groups = clusters.get("groups", {})
+    
+    for cid, idxs in groups.items():
+        cluster_texts = [texts[i] for i in idxs]
+        
+        # debug output
+        print(f"[DEBUG] Cluster {cid}: {len(idxs)} items")
+        if cluster_texts:
+            print(f"[DEBUG] First text sample: {cluster_texts[0][:200]}")
+        
+        sent_result = SimpleLexSentimentTool(
+            reasoning="Analyzing sentiment of cluster texts to gauge overall tone",
+            texts=[t[:500] for t in cluster_texts]
+        ).execute()
+        scores = sent_result.get("scores", [])
+        s_avg = (sum(scores)/max(1, len(scores))) if scores else 0
+        
+        summary = await summarize_cluster(cluster_texts, cid)
+        
+        # TODO fix simple score: size + small boost for positive sentiment
+        score = min(100, int(len(idxs) * 6 + max(0, s_avg) * 5))
+        srcs = [urls[i] for i in idxs if i < len(urls) and urls[i]]
+        out.append({
+            "cluster_id": cid, 
+            "summary": summary, 
+            "score": score, 
+            "sources": list(dict.fromkeys(srcs))[:5]
+        })
+    
+    # sort themes by simple score desc
+    out.sort(key=lambda x: x["score"], reverse=True)
+    return out
 
 async def summarize_cluster(texts: List[str], cid: int) -> str:
     # Summarize a cluster with GPT-5-MINI
@@ -94,8 +158,12 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[i
     out = []
     for cid, idxs in clusters.items():
         cluster_texts = [texts[i] for i in idxs]
-        sent = SimpleLexSentimentTool(texts=[t[:500] for t in cluster_texts]).execute()["scores"]
-        s_avg = (sum(sent)/max(1,len(sent))) if sent else 0
+        sent_result = SimpleLexSentimentTool(
+            reasoning="Analyzing sentiment of cluster texts to gauge overall tone",
+            texts=[t[:500] for t in cluster_texts]
+        ).execute()
+        scores = sent_result.get("scores", [])
+        s_avg = (sum(scores)/max(1, len(scores))) if scores else 0
         summary = ""
         summary = await summarize_cluster(cluster_texts, cid)
         # Simple score: size + small boost for positive sentiment
@@ -130,7 +198,7 @@ async def run_insight_scout(topic: str) -> Dict[str, Any]:
     # Manual search if model didn't call tools
     if not resp.choices[0].message.tool_calls:
         print("[DEBUG] No tool calls from model. Running manual search...")
-        search_tool = WebSearchTool(query=topic, max_results=10)
+        search_tool = WebSearchTool(query=topic, reasoning="Manual search", limit=10)
         search_results = search_tool.execute()
         print(f"[DEBUG] Manual search results: {len(search_results.get('results', []))} items")
         messages.append({"role": "tool", "tool_call_id": "manual_search", "content": json.dumps(search_results)})
