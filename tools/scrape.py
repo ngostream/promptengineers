@@ -91,31 +91,40 @@ def scrape_amazon_reviews(page_url: str, delay: float = 1.0):
 
     return reviews
 
+def clean_text(text: str) -> str:
+    """Basic cleanup: strip whitespace and remove very short strings."""
+    if not text:
+        return ""
+    text = re.sub(r"\s+", " ", text).strip()  # collapse spaces/newlines
+    if len(text) < 5:  # discard extremely short items
+        return ""
+    return text
+
 class ScrapeUrlsTool(BaseModel):
     """Fetch and clean article text from a list of URLs."""
     reasoning: str = Field(..., description="Reasoning process before calling tool")
     urls: List[str] = Field(..., description="List of URLs to fetch")
     timeout: int = Field(12, ge=3, le=60)
 
-    def _extract(self, url, str_url) -> str:
+    def _extract(self, url, str_url) -> List[str]:
         if check_url_platform(str_url) == "reddit":
-            comments = get_reddit_comments(url)
-            if comments:
-                return comments
+            comments = get_reddit_comments(str_url)
+            return [clean_text(c) for c in comments if clean_text(c)]
         elif check_url_platform(str_url) == "amazon":
-            reviews = scrape_amazon_reviews(url)
-            if reviews:
-                return reviews
-        html = url.text
-        soup = BeautifulSoup(html, "lxml")
+            reviews = scrape_amazon_reviews(str_url)
+            return [clean_text(r) for r in reviews if clean_text(r)]
+
+        # generic HTML scrape
+        soup = BeautifulSoup(url.text, "lxml")
         for tag in soup(["script", "style", "noscript", "header", "footer", "nav"]):
             tag.decompose()
+
         chunks = []
         seen_texts = set()
 
-        # Collect all <p> and <span> text
+        # collect all <p> and <span> text cleaned
         for el in soup.find_all(["p", "span"]):
-            text = el.get_text(" ", strip=True)
+            text = clean_text(el.get_text(" ", strip=True))
             if text and text not in seen_texts:
                 seen_texts.add(text)
                 chunks.append(text)
@@ -127,12 +136,16 @@ class ScrapeUrlsTool(BaseModel):
         for u in self.urls:
             try:
                 r = requests.get(u, timeout=self.timeout, headers={"User-Agent": "insight-scout/1.0"})
-                # if r.ok and r.text:
-                parsed_posts = self._extract(r, u)#[:20000]
-                st.session_state.scraped_data['texts']+=parsed_posts
-                st.session_state.scraped_data['urls']+=[u]*len(parsed_posts)
-                valid_urls.append(u)
-                n_parsed_posts+=len(parsed_posts)
+                parsed_posts = self._extract(r, u)
+                
+                # FILTER OUT ANY EMPTY POSTS BEFORE STORING
+                parsed_posts = [t for t in parsed_posts if t.strip()]
+                
+                if parsed_posts:  # only store non-empty lists
+                    st.session_state.scraped_data['texts'] += parsed_posts
+                    st.session_state.scraped_data['urls'] += [u] * len(parsed_posts)
+                    valid_urls.append(u)
+                    n_parsed_posts += len(parsed_posts)
             except Exception:
                 continue
         return {'valid_scraped_urls': valid_urls, 'number_of_scraped_chunks': n_parsed_posts}
