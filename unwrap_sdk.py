@@ -1,14 +1,14 @@
 import asyncio, os, json, random
 from typing import List, Dict, Optional, Any, Type
-from dotenv import load_dotenv
 from pydantic import BaseModel
 from openai import AsyncAzureOpenAI, pydantic_function_tool
 from openai.types.chat import ChatCompletion
 from enum import Enum
+from dotenv import load_dotenv
 
 load_dotenv()
 
-endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+endpoint = "https://unwrap-hackathon-oct-20-resource.cognitiveservices.azure.com/"
 subscription_key = os.getenv("SUBSCRIPTION_KEY")
 
 class GPT5Deployment(str, Enum):
@@ -22,6 +22,7 @@ class ReasoningEffort(str, Enum):
     MEDIUM = "medium"
     HIGH = "high"
 
+# --- Concurrency + client caching ---
 _openai_semaphore = asyncio.Semaphore(20)
 _client: Optional[AsyncAzureOpenAI] = None
 
@@ -36,6 +37,7 @@ def get_client() -> AsyncAzureOpenAI:
         )
     return _client
 
+# --- Retry wrapper ---
 async def _with_retries(coro_factory, *, max_attempts=4, base_delay=0.6):
     attempt = 0
     while True:
@@ -47,6 +49,7 @@ async def _with_retries(coro_factory, *, max_attempts=4, base_delay=0.6):
                 raise
             await asyncio.sleep(base_delay * (2 ** (attempt - 1)) + random.random() * 0.2)
 
+# --- Chat completions ---
 async def create_openai_completion(
     messages: List[Dict[str, Any]],
     model: GPT5Deployment = GPT5Deployment.GPT_5_MINI,
@@ -60,9 +63,9 @@ async def create_openai_completion(
         openai_tools = [pydantic_function_tool(t) for t in tools] if tools else None
         params: Dict[str, Any] = {
             "messages": messages,
-            "model": model,
+            "model": model.value,
             "max_completion_tokens": max_completion_tokens,
-            "reasoning_effort": reasoning_effort,
+            "reasoning_effort": reasoning_effort.value if isinstance(reasoning_effort, ReasoningEffort) else reasoning_effort,
         }
         if openai_tools:
             params["tools"] = openai_tools
@@ -70,6 +73,7 @@ async def create_openai_completion(
                 params["tool_choice"] = tool_choice
         return await _with_retries(lambda: client.chat.completions.create(**params))
 
+# --- Embeddings ---
 async def create_embeddings(inputs: List[str], model: str = "text-embedding-3-small") -> List[List[float]]:
     client = get_client()
     out: List[List[float]] = []
@@ -79,16 +83,51 @@ async def create_embeddings(inputs: List[str], model: str = "text-embedding-3-sm
         out.extend([d.embedding for d in resp.data])
     return out
 
-def execute_tool_call(tool_call, available_tools: Dict[str, type[BaseModel]]) -> Dict[str, Any]:
+# --- Tool execution ---
+def execute_tool_call(tool_call, available_tools: Dict[str, Type[BaseModel]]) -> Dict[str, Any]:
     name = tool_call.function.name
     if name not in available_tools:
         return {"ok": False, "error": f"Tool {name} not found"}
     try:
         args = json.loads(tool_call.function.arguments or "{}")
-        tool_instance = available_tools[name](**args)
-        if hasattr(tool_instance, "execute"):
-            data = tool_instance.execute()
-            return {"ok": True, "tool": name, "args": args, "data": data}
+        inst = available_tools[name](**args)
+        if hasattr(inst, "execute"):
+            return {"ok": True, "tool": name, "args": args, "data": inst.execute()}
         return {"ok": False, "error": f"Tool {name} missing execute()"}
     except Exception as e:
         return {"ok": False, "error": f"{type(e).__name__}: {e}"}
+
+# --- Example Pydantic tool ---
+class GetWeatherTool(BaseModel):
+    location: str
+    unit: str = "celsius"
+
+    def execute(self) -> Dict[str, Any]:
+        return {
+            "location": self.location,
+            "temperature": "22°C" if self.unit == "celsius" else "72°F",
+            "condition": "sunny",
+            "unit": self.unit,
+        }
+
+# --- Example usage ---
+async def main():
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "What's the weather in Paris?"},
+    ]
+    # Chat
+    chat_resp = await create_openai_completion(messages, tools=[GetWeatherTool], tool_choice="auto")
+    print("Chat response:", chat_resp.choices[0].message.content)
+
+    # Tool execution
+    if chat_resp.choices[0].message.tool_calls:
+        result = execute_tool_call(chat_resp.choices[0].message.tool_calls[0], {"GetWeatherTool": GetWeatherTool})
+        print("Tool result:", result)
+
+    # Embeddings
+    embeddings = await create_embeddings(["Hello world", "Azure OpenAI is awesome"])
+    print("Embeddings shape:", len(embeddings), "x", len(embeddings[0]))
+
+if __name__ == "__main__":
+    asyncio.run(main())

@@ -79,7 +79,7 @@ async def create_openai_completion(
         request_params = {
             "messages": messages,
             "max_completion_tokens": max_completion_tokens,
-            "model": model,
+            "model": model.value,
             "reasoning_effort": reasoning_effort,
         }
 
