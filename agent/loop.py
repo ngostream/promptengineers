@@ -58,11 +58,13 @@ async def embed_and_cluster(min_cluster_size=2, log = print):
     urls = items.get('urls', [])
     
     # get embeddings using HF Inference Providers API
+    log('Creating embeddings...')
     vectors = await create_embeddings(
         inputs=texts,
         model=HF_MODEL,
         api_key=HF_API_KEY
     )
+    log(f'Created {len(vectors)} embeddings.')
     st.session_state.scraped_embeddings['texts'] += texts
     st.session_state.scraped_embeddings['urls'] += urls
     st.session_state.scraped_embeddings['vectors'] += vectors
