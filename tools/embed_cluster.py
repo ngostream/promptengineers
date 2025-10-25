@@ -18,7 +18,5 @@ class ClusterFromVectorsTool(BaseModel):
         labels = clusterer.fit_predict(X)
         groups: Dict[int, List[int]] = {}
         for i, c in enumerate(labels):
-            if c == -1:
-                continue
             groups.setdefault(int(c), []).append(i)
         return {"labels": labels.tolist(), "groups": groups}
