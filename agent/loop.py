@@ -83,7 +83,7 @@ async def embed_and_cluster(min_cluster_size=2):
     }
 
 
-async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[str, Any]):
+async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[str, Any], relevancy_threshold: float = 0.5):
     """
     Summarize each cluster with sentiment analysis and scoring.
     clusters should be the dict with "groups" and "labels" keys.
@@ -130,7 +130,7 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
     
     # sort themes by simple score desc
     out.sort(key=lambda x: x["relevancy"], reverse=True)
-    return out
+    return [o for o in out if o["relevancy"]>relevancy_threshold]
 
 async def summarize_cluster(texts: List[str], cid: int) -> str:
     # Summarize a cluster with GPT-5-MINI
