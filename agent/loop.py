@@ -34,6 +34,7 @@ async def act_until_no_tools(messages, resp, log) -> Dict[str, Any]:
         msg = resp.choices[0].message
         log(msg)
         if not msg.tool_calls:
+            log(messages)
             break
         for call in msg.tool_calls:
             result = execute_tool_call(call, AVAILABLE)
@@ -215,7 +216,7 @@ async def run_insight_scout(topic: str, log_fn = None) -> Dict[str, Any]:
     log(f"Embedding and clustering complete. Number of clusters: {len(ec['clusters'])}")
 
     # 5) Summarize clusters + score
-    themes = await summarize_clusters(ec["texts"], ec["urls"], ec["clusters"], log)
+    themes = await summarize_clusters(ec["texts"], ec["urls"], ec["clusters"], log = log)
     print(f"[DEBUG] Summarization complete. Number of themes: {len(themes)}")
     log(f"Summarization complete. Number of themes: {len(themes)}")
 

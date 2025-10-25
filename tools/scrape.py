@@ -146,6 +146,8 @@ class ScrapeUrlsTool(BaseModel):
                     st.session_state.scraped_data['urls'] += [u] * len(parsed_posts)
                     valid_urls.append(u)
                     n_parsed_posts += len(parsed_posts)
+                else:
+                    print(f"[DEBUG] No valid content extracted from {u}")
             except Exception:
                 continue
         return {'valid_scraped_urls': valid_urls, 'number_of_scraped_chunks': n_parsed_posts}
