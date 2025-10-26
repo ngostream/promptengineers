@@ -130,7 +130,7 @@ def visualize_clusters(
 
     # Legend under the plot
     st.markdown("### Legend")
-    legend_rows = legend_rows.sorted(key=lambda r: (r["cluster"] == -1, r["cluster"]))  # noise last
+    legend_rows = sorted(legend_rows, key=lambda r: (r["cluster"] == -1, r["cluster"]))  # noise last
     for row in legend_rows:
         c = row["cluster"]
         size = row["size"]
