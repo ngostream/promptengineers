@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 
 from agent.loop import run_insight_scout
-from tools.embed_cluster import ClusterFromVectorsTool
 from ui_cluster_viz import visualize_clusters, visualize_family_scores  # make sure ui_cluster_viz.py is in repo root
 
 
