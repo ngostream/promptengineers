@@ -17,8 +17,8 @@ if 'cluster_data' not in st.session_state:
 if 'logs' not in st.session_state:
     st.session_state.logs = []
 
-st.set_page_config(page_title="Insight Agent", layout="wide")
-st.title("Insight Agent")
+st.set_page_config(page_title="ScrapAgent", layout="wide")
+st.title("ScrapAgent")
 
 # --- UI input ---
 q = st.text_input("Topic", value="electric bikes this week")
@@ -101,7 +101,6 @@ if run:
                         st.markdown("_No sources listed._")
 
         # --- Cluster visualization ---
-        st.subheader("Embedding Clusters")
         vectors = st.session_state.scraped_embeddings.get("vectors", [])
         texts = st.session_state.scraped_data.get("texts", [])
         urls = st.session_state.scraped_data.get("urls", [])
@@ -117,7 +116,7 @@ if run:
             visualize_clusters(
                 embeddings=np.array(vectors, dtype=np.float32),
                 cluster_meta=clusters,
-                title="Embedding clusters",
+                title="Embedding Clusters",
             )
         else:
             st.info("No embeddings available to visualize yet (or lengths mismatch).")

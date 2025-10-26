@@ -42,12 +42,16 @@ def visualize_clusters(
         }
     """
     st.subheader(title)
+    idxs = []
+    for group in st.session_state.cluster_data['groups'].values():
+        idxs+=group
+    
     labels = np.zeros(len(embeddings), dtype=int)
     for i, ids in cluster_meta.get("groups", {}).items():
         for idx in ids:
             labels[idx] = int(i)
     # Controls
-    colA, colB, colC = st.columns([1, 1, 1])
+    # colA, colB, colC = st.columns([1, 1, 1])
     method = "PCA (fast)"
     seed = 42
     # with colA:
@@ -65,13 +69,12 @@ def visualize_clusters(
 
     # Subsample for speed if needed
     
-    idx = np.arange(len(embeddings))
     # if len(idx) > sample_n:
     #     rng = np.random.default_rng(seed)
     #     idx = rng.choice(idx, size=sample_n, replace=False)
 
-    emb = np.asarray(embeddings)[idx]
-    lab = np.asarray(labels)[idx]
+    emb = np.asarray(embeddings)[idxs]
+    lab = np.asarray(labels)[idxs]
 
     # Normalize (cosine-friendly) if not already
     norms = np.linalg.norm(emb, axis=1, keepdims=True) + 1e-9
@@ -127,7 +130,7 @@ def visualize_clusters(
             opacity=0.9,
         )
         # Attach customdata (cluster size) and set hover to ONLY show size
-        fig.update_traces(customdata=np.c_[point_sizes], hovertemplate="size: %{customdata[0]}<extra></extra>")
+        fig.update_traces(customdata=np.c_[lab], hovertemplate="label: %{customdata[0]}<extra></extra>")
         fig.update_traces(marker=dict(size=6, line=dict(width=0)))
         st.plotly_chart(fig, use_container_width=True)
     else:

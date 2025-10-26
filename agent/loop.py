@@ -79,8 +79,9 @@ async def embed_and_cluster(min_cluster_size=2, log = print):
     log("Clustering results...")
     cluster_results = cluster_tool.execute()
     
-    st.session_state.cluster_data['labels'] = cluster_results['labels']
-    st.session_state.cluster_data['groups'] = cluster_results['groups']
+    # st.session_state.cluster_data['labels'] = cluster_results['labels']
+    # st.session_state.cluster_data['groups'] = cluster_results['groups']
+
     for label, indexes in cluster_results['groups'].items():
         source_urls = set()
         for idx in indexes:
@@ -125,7 +126,11 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
             relevancy = float(summary_result.get("relevancy", 0))
             sentiment = float(summary_result.get("sentiment", 0))
             summary = summary_result.get("summary", "")
-
+            # {'labels': [], 'groups': {}, 'summaries': {}, 'relevancies': {}, 'sentiments': {}, 'urls': {}}
+            if relevancy<relevancy_threshold:
+                return
+            st.session_state.cluster_data['labels'].append(cid)
+            st.session_state.cluster_data['groups'][cid] = idxs
             st.session_state.cluster_data['summaries'][cid] = summary
             st.session_state.cluster_data['relevancies'][cid] = relevancy
             st.session_state.cluster_data['sentiments'][cid] = sentiment
@@ -157,7 +162,7 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
     
     # sort themes by simple score desc
     out.sort(key=lambda x: x["relevancy"], reverse=True)
-    return [o for o in out if o["relevancy"]>relevancy_threshold]
+    return out
 
 # async def summarize_cluster(texts: List[str], cid: int) -> str:
 #     # Summarize a cluster with GPT-5-MINI
@@ -242,8 +247,23 @@ async def run_insight_scout(topic: str, log_fn = None) -> Dict[str, Any]:
     log(f"Summarization complete. Number of themes: {len(themes)}")
 
     # 6) Final report
-    report = await write_report(topic, themes)
-    print(f"[DEBUG] Report generated. Length: {len(report)} characters")
-    log(f"Report generated. Length: {len(report)} characters")
+    print("Generating final report...")
+    max_retries = 3
+    attempt = 0
+    report = ""
+
+    while attempt < max_retries:
+        report = await write_report(topic, themes)
+        if report and len(report.strip()) > 0:
+            break  # success
+        attempt += 1
+        print(f"[DEBUG] Empty report on attempt {attempt}. Retrying...")
+        log(f"Empty report on attempt {attempt}. Retrying...")
+
+    if not report or len(report.strip()) == 0:
+        report = "Failed to generate report after multiple attempts. Try rerunning the agent."
+
+    print(f"[DEBUG] Report generated. Length: {len(report)} characters after {attempt+1} attempt(s)")
+    log(f"Report generated. Length: {len(report)} characters after {attempt+1} attempt(s)")
 
     return {"topic": topic, "themes": themes, "report": report}

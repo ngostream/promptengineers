@@ -42,7 +42,7 @@ _openai_semaphore = asyncio.Semaphore(20)
 
 async def create_openai_completion(
     messages: List[Dict[str, str]],
-    model: GPT5Deployment = GPT5Deployment.GPT_5_NANO,
+    model: GPT5Deployment = GPT5Deployment.GPT_5_MINI,
     reasoning_effort: ReasoningEffort = ReasoningEffort.MINIMAL,
     max_completion_tokens: int = 16384,
     tools: Optional[List[type[BaseModel]]] = None,

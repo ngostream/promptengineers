@@ -109,9 +109,9 @@ class ScrapeUrlsTool(BaseModel):
     """Fetch and clean article text from a list of URLs."""
     reasoning: str = Field(..., description="Reasoning process before calling tool")
     urls: List[str] = Field(..., description="List of URLs to fetch")
-    timeout: int = Field(12, ge=3, le=60)
 
     def _extract(self, url, str_url) -> List[str]:
+
         if check_url_platform(str_url) == "reddit":
             comments = get_reddit_comments(str_url)
             return [clean_text(c) for c in comments if clean_text(c)]
@@ -136,11 +136,12 @@ class ScrapeUrlsTool(BaseModel):
         return chunks
 
     def execute(self) -> Dict:
+        timeout = 20
         valid_urls = []
         n_parsed_posts = 0
         for u in self.urls:
             try:
-                r = requests.get(u, timeout=self.timeout, headers={"User-Agent": "insight-scout/1.0"})
+                r = requests.get(u, timeout=timeout, headers={"User-Agent": "insight-scout/1.0"})
                 parsed_posts = self._extract(r, u)
                 
                 # FILTER OUT ANY EMPTY POSTS BEFORE STORING
