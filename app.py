@@ -50,13 +50,6 @@ results_tab, logs_tab = st.tabs(["Results", "Logs"])
 with logs_tab:
     log_box = st.empty()
 
-# def add_log(msg: str):
-#     """Append a log message and re-render logs tab."""
-#     st.session_state.logs.append(msg)
-#     log_box.markdown(
-#         "\n".join(f"- {line}" for line in st.session_state.logs[-200:]) or "_no logs yet_"
-#     )
-
 def add_log_table(event_type, description):
     current_time = time.time()
     elapsed = current_time - st.session_state.start_time
