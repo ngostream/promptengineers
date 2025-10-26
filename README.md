@@ -1,4 +1,4 @@
-# Insight Agent – Autonomous Research Agent
+# Scrap Agent – Autonomous Research Agent
 
 **Demo-ready** project that searches the web, clusters content with embeddings, and writes an executive brief with sources and trend scores.
 
