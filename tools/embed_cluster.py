@@ -1,0 +1,28 @@
+from typing import List, Dict
+import numpy as np
+from pydantic import BaseModel, Field
+from sklearn.preprocessing import normalize
+import hdbscan
+from datetime import datetime
+
+class ClusterFromVectorsTool(BaseModel):
+    """Cluster precomputed vectors and return groups (indices)."""
+    reasoning: str = Field(..., description="Reasoning process before calling tool")
+    vectors: List[List[float]]
+    min_cluster_size: int = Field(2, ge=2, le=50)
+
+    def execute(self) -> Dict:
+        X = np.array(self.vectors, dtype=np.float32)
+        if X.ndim == 1:
+            X = X.reshape(1, -1)
+        X = normalize(X)
+        print("Clustering...")
+        print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        clusterer = hdbscan.HDBSCAN(min_cluster_size=self.min_cluster_size, metric='euclidean')
+        print("Clustering finished!")
+        print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        labels = clusterer.fit_predict(X)
+        groups: Dict[int, List[int]] = {}
+        for i, c in enumerate(labels):
+            groups.setdefault(int(c), []).append(i)
+        return {"labels": labels.tolist(), "groups": groups}

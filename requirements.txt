@@ -1,0 +1,16 @@
+openai
+streamlit
+ddgs
+beautifulsoup4
+lxml
+readability-lxml
+requests
+pydantic
+python-dotenv
+numpy
+scikit-learn
+hdbscan
+transformers
+plotly
+matplotlib
+tldextract
