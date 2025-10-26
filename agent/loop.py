@@ -114,7 +114,7 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
     groups = clusters.get("groups", {})
     
     batchesOfClusterTexts = []
-    sem = asyncio.Semaphore(8)
+    sem = asyncio.Semaphore(10)
     
     async def summarizeSingleCluster(cluster_texts:List[str], cid: int, idxs: List[int]):
         async with sem:

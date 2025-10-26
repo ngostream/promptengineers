@@ -84,7 +84,7 @@ async def create_embeddings(
     """Create embeddings using Azure API with async processing."""
     client = get_client()
     batch_size = 20
-    max_concurrency = 8
+    max_concurrency = 10
     sem = asyncio.Semaphore(max_concurrency)
     async def embed(chunk:List[str]):
         async with sem:
