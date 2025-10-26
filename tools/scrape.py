@@ -72,7 +72,6 @@ def scrape_amazon_reviews(page_url: str, delay: float = 1.0):
 
     r = requests.get(page_url, headers=headers)
     if r.status_code != 200:
-        # print(f"Failed to load page {page_url} (status {r.status_code})")
         return []
 
     soup = BeautifulSoup(r.text, "lxml")
@@ -80,7 +79,6 @@ def scrape_amazon_reviews(page_url: str, delay: float = 1.0):
     # Look for all elements with class containing 'review-text'
     review_divs = soup.find_all(class_=lambda c: c and "review-text" in c)
     if not review_divs:
-        # print("No reviews found on this page — stopping.")
         return []
 
     for div in review_divs:

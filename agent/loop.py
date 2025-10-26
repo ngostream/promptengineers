@@ -35,11 +35,9 @@ async def act_until_no_tools(messages, resp, log) -> Dict[str, Any]:
         msg = resp.choices[0].message
         # log(msg)
         if not msg.tool_calls:
-            # log(messages)
             break
         for call in msg.tool_calls:
             result = execute_tool_call(call, AVAILABLE)
-            # log(json.dumps(result))
                         
             if 'args' in result:
                 log(f'Agent input to {call.function.name}', json.dumps(result['args']))
@@ -89,9 +87,6 @@ async def embed_and_cluster(min_cluster_size=2, log = print):
     print("Clustering results...")
     log('System',"Clustering results...")
     cluster_results = cluster_tool.execute()
-    
-    # st.session_state.cluster_data['labels'] = cluster_results['labels']
-    # st.session_state.cluster_data['groups'] = cluster_results['groups']
 
     for label, indexes in cluster_results['groups'].items():
         source_urls = set()
@@ -125,9 +120,6 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
         async with sem:
         # debug output
             print(f"[DEBUG] Cluster {cid}: {len(idxs)} items")
-            # if cluster_texts:
-            #     print(f"[DEBUG] First text sample: {cluster_texts[0][:200]}")
-            #     log(f"First text sample: {cluster_texts[0][:200]}")
 
             summary_result = await Cluster_Summarize_and_Score(
                 texts= cluster_texts,
@@ -155,7 +147,6 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
                 "score": sentiment, 
                 "relevancy": relevancy,
                 "topic": topic,
-                # "sources": list(dict.fromkeys(srcs))[:5]
             })
 
     for cid, idxs in groups.items(): 

@@ -58,7 +58,6 @@ def add_log_table(event_type, description):
         "Event": event_type,
         "Description": description
     })
-    # st.session_state.logs.append({"Event": event_type, "Description": description})
     df = pd.DataFrame(st.session_state.logs[-200:])  # show only latest 200
     log_box.dataframe(df, width='stretch', hide_index=True)
 
