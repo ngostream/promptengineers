@@ -119,9 +119,9 @@ if run:
                 sources = st.session_state.cluster_data['urls'][t.get("cluster_id")]
                 # sources = list({s.strip() for s in t.get("sources", []) if s.strip()})
 
-                with st.expander(f"{label} (Score {score:.1f}) - {t['topic']}"):
+                with st.expander(f"{label} (Sentiment Score {score:.1f}) - {t['topic']}"):
                     st.markdown(t.get("summary", "_No summary available._"))
-
+                    st.markdown(f'**Relevancy Score:** {t.get("relevancy", 0):.2f}')
                     if sources:
                         st.markdown("**All Sources Used:**")
                         for src in sources:
