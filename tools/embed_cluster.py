@@ -3,6 +3,7 @@ import numpy as np
 from pydantic import BaseModel, Field
 from sklearn.preprocessing import normalize
 import hdbscan
+from datetime import datetime
 
 class ClusterFromVectorsTool(BaseModel):
     """Cluster precomputed vectors and return groups (indices)."""
@@ -15,7 +16,11 @@ class ClusterFromVectorsTool(BaseModel):
         if X.ndim == 1:
             X = X.reshape(1, -1)
         X = normalize(X)
+        print("Clustering...")
+        print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         clusterer = hdbscan.HDBSCAN(min_cluster_size=self.min_cluster_size, metric='euclidean')
+        print("Clustering finished!")
+        print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         labels = clusterer.fit_predict(X)
         groups: Dict[int, List[int]] = {}
         for i, c in enumerate(labels):

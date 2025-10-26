@@ -11,6 +11,5 @@ numpy
 scikit-learn
 hdbscan
 transformers
-huggingface_hub
 plotly
 matplotlib

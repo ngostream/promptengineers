@@ -80,58 +80,24 @@ async def create_openai_completion(
 # --- Embeddings ---
 async def create_embeddings(
     inputs: List[str],
-    model: str = "sentence-transformers/all-MiniLM-L6-v2",
-    api_key: str | None = None,
-) -> List[List[float]]:
-    print("Creating embeddings...")
-    """Create embeddings using Hugging Face Inference API with parallel processing."""
-    try:
-        from huggingface_hub import InferenceClient
-    except ImportError:
-        raise ImportError("huggingface_hub is required. Install with: pip install huggingface_hub")
-    
-    if not api_key:
-        raise ValueError("HF_API_KEY is required")
-    
-    client = InferenceClient(api_key=api_key)
+    model = "text-embedding-3-small"
+    ) -> List[List[float]]:
+    """Create embeddings using Azure API with async processing."""
+    client = get_client()
     batch_size = 20
-    max_concurrency = 5
+    max_concurrency = 7
     sem = asyncio.Semaphore(max_concurrency)
-    
-    chunks = [inputs[i:i+batch_size] for i in range(0, len(inputs), batch_size)]
-    
-    async def process_chunk(chunk: List[str]) -> List[List[float]]:
+    async def embed(chunk:List[str]):
         async with sem:
-            vectors = []
-            for text in chunk:
-                embedding = client.feature_extraction(text=text, model=model)
-                
-                try:
-                    import numpy as np
-                    if isinstance(embedding, np.ndarray):
-                        embedding = embedding.tolist()
-                except ImportError:
-                    pass
-                
-                if isinstance(embedding, list):
-                    if len(embedding) > 0 and isinstance(embedding[0], list):
-                        vec = [sum(vals) / len(vals) for vals in zip(*embedding)]
-                    elif len(embedding) > 0:
-                        vec = embedding
-                    else:
-                        raise RuntimeError("Empty embedding")
-                else:
-                    raise RuntimeError(f"Unexpected embedding type: {type(embedding)}")
-                
-                vectors.append(vec)
-            return vectors
-    
-    tasks = [process_chunk(chunk) for chunk in chunks]
-    responses = await asyncio.gather(*tasks, return_exceptions=True)
-    
+            response = await client.embeddings.create(input=chunk, model=model)
+            return [item.embedding for item in response.data]
+    chunks = [inputs[i:i+batch_size] for i in range(0, len(inputs), batch_size)]
+    tasks = [embed(chunk) for chunk in chunks]
+    responses = await asyncio.gather(*tasks, return_exceptions= True) 
+
     failures = [i for i, r in enumerate(responses) if isinstance(r, Exception)]
     for fail_idx in failures:
-        responses[fail_idx] = await process_chunk(chunks[fail_idx])
+        responses[fail_idx] = await embed(chunks[fail_idx])
     
     out: List[List[float]] = []
     for resp in responses:
@@ -167,27 +133,27 @@ class GetWeatherTool(BaseModel):
         }
 
 # --- Example usage ---
-async def main():
-    messages = [
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "What's the weather in Paris?"},
-    ]
-    # Chat
-    chat_resp = await create_openai_completion(messages, tools=[GetWeatherTool], tool_choice="auto")
-    print("Chat response:", chat_resp.choices[0].message.content)
+# async def main():
+#     messages = [
+#         {"role": "system", "content": "You are a helpful assistant."},
+#         {"role": "user", "content": "What's the weather in Paris?"},
+#     ]
+#     # Chat
+#     chat_resp = await create_openai_completion(messages, tools=[GetWeatherTool], tool_choice="auto")
+#     print("Chat response:", chat_resp.choices[0].message.content)
 
-    # Tool execution
-    if chat_resp.choices[0].message.tool_calls:
-        result = execute_tool_call(chat_resp.choices[0].message.tool_calls[0], {"GetWeatherTool": GetWeatherTool})
-        print("Tool result:", result)
+#     # Tool execution
+#     if chat_resp.choices[0].message.tool_calls:
+#         result = execute_tool_call(chat_resp.choices[0].message.tool_calls[0], {"GetWeatherTool": GetWeatherTool})
+#         print("Tool result:", result)
 
-    # Embeddings
-    embeddings = await create_embeddings(
-        ["Hello world", "Azure OpenAI is awesome"],
-        model=HF_MODEL,
-        api_key=HF_API_KEY
-    )
-    print("Embeddings shape:", len(embeddings), "x", len(embeddings[0]))
+#     # Embeddings
+#     embeddings = await create_embeddings(
+#         ["Hello world", "Azure OpenAI is awesome"],
+#         model=HF_MODEL,
+#         api_key=HF_API_KEY
+#     )
+#     print("Embeddings shape:", len(embeddings), "x", len(embeddings[0]))
 
-if __name__ == "__main__":
-    asyncio.run(main())
+# if __name__ == "__main__":
+#     asyncio.run(main())

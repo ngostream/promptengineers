@@ -1,5 +1,6 @@
 import json, asyncio
 from typing import List, Dict, Any
+from datetime import datetime
 
 from unwrap_sdk import (
     create_openai_completion, create_embeddings, execute_tool_call,
@@ -61,9 +62,7 @@ async def embed_and_cluster(min_cluster_size=2, log = print):
     # get embeddings using HF Inference Providers API
     log('Creating embeddings...')
     vectors = await create_embeddings(
-        inputs=texts,
-        model=HF_MODEL,
-        api_key=HF_API_KEY
+        inputs=texts
     )
     log(f'Created {len(vectors)} embeddings.')
     st.session_state.scraped_embeddings['texts'] += texts
@@ -224,7 +223,7 @@ async def run_insight_scout(topic: str, log_fn = None) -> Dict[str, Any]:
     messages = step["messages"]
     print(f"[DEBUG] Tool execution loop complete. Total messages: {len(messages)}")
 
-    # 4) Embed + cluster in parallel (max 5 parallel calls allowed)
+    # 4) Embed + cluster in parallel
     ec = await embed_and_cluster(min_cluster_size=2, log = log)
     print(f"[DEBUG] Embedding and clustering complete. Number of clusters: {len(ec['clusters'])}")
     log(f"Embedding and clustering complete. Number of clusters: {len(ec['clusters'])}")
