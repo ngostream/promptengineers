@@ -20,11 +20,29 @@ if 'logs' not in st.session_state:
     st.session_state.logs = []
 
 st.set_page_config(page_title="ScrapAgent", layout="wide")
-st.title("ScrapAgent")
+col1, col2 = st.columns([2, 9])
+
+with col1:
+    st.title("ScrapAgent")
+
+with col2:
+    st.markdown(
+        """
+        <div style='
+            position: relative;
+            top: 25px;
+            font-size: 32px;
+            color: gray;
+        '>
+            Crappy Scraper For Your Scrappy Insights
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 # --- UI input ---
 q = st.text_input("Topic", value="electric bikes this week")
-run = st.button("Run Agent")
+run = st.button("Run")
 
 # --- Tabs: Results + Live Logs ---
 results_tab, logs_tab = st.tabs(["Results", "Logs"])
