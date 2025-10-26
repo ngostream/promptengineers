@@ -119,7 +119,7 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
     groups = clusters.get("groups", {})
     
     batchesOfClusterTexts = []
-    sem = asyncio.Semaphore(7)
+    sem = asyncio.Semaphore(8)
     
     async def summarizeSingleCluster(cluster_texts:List[str], cid: int, idxs: List[int]):
         async with sem:
@@ -206,11 +206,6 @@ async def run_insight_scout(topic: str, log_fn = None) -> Dict[str, Any]:
             log_fn(type, msg)
         else:
             print(msg)
-    # def log(msg):
-    #     if log_fn:
-    #         log_fn(msg)
-    #     else:
-    #         print(msg)
 
     print(f"[DEBUG] Starting Insight Agent for topic: {topic}")
     
