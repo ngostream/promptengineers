@@ -3,11 +3,53 @@ import streamlit as st
 import asyncio
 import numpy as np
 import pandas as pd
+import json, os
 
 from agent.loop import run_insight_scout
 from tools.embed_cluster import ClusterFromVectorsTool
 from ui_cluster_viz import visualize_clusters, visualize_family_scores  # make sure ui_cluster_viz.py is in repo root
 
+# --- DEMO MODE TOGGLE ---
+DEMO_MODE = True  # flip to False in main branch
+
+def save_demo_results(topic, result):
+    os.makedirs("demo_results", exist_ok=True)
+    fname = f"demo_results/{topic.replace(' ', '_')}.json"
+
+    with open(fname, "w") as f:
+        json.dump({
+            "result": result,
+            "scraped_data": st.session_state.get("scraped_data", {}),
+            "scraped_embeddings": st.session_state.get("scraped_embeddings", {}),
+            "cluster_data": st.session_state.get("cluster_data", {}),
+            "logs": st.session_state.get("logs", []),
+        }, f)
+
+    st.success(f"Saved demo results to {fname}")
+
+def load_demo_results(topic):
+    import json, os
+
+    fname = f"demo_results/{topic.replace(' ', '_')}.json"
+
+    if not os.path.exists(fname):
+        return None
+
+    with open(fname, "r") as f:
+        data = json.load(f)
+
+    # Restore session state
+    st.session_state.scraped_data = data.get("scraped_data", {})
+    st.session_state.scraped_embeddings = data.get("scraped_embeddings", {})
+    st.session_state.cluster_data = data.get("cluster_data", {})
+
+    # Restore logs or add a fallback if missing
+    st.session_state.logs = data.get("logs") or [
+        {"Time (s)": "0.00", "Event": "System", "Description": f"Loaded cached results for '{topic}'"},
+        {"Time (s)": "—", "Event": "Cache", "Description": "Demo mode: no live agent activity"},
+    ]
+
+    return data.get("result", {})
 
 # --- Session state initialization ---
 if 'scraped_data' not in st.session_state:
@@ -88,8 +130,25 @@ async def run_agent(topic):
 # --- Run logic ---
 if run:
     with results_tab:
-        with st.spinner("Thinking… scraping… clustering… summarizing…"):
-            result = asyncio.run(run_agent(q))
+        if DEMO_MODE:
+            result = load_demo_results(q)
+            if result is None:
+                with st.spinner("Running live agent (no demo data found)..."):
+                    result = asyncio.run(run_agent(q))
+                    save_demo_results(q, result)
+            # --- Force log table refresh in demo mode ---
+            if st.session_state.logs:
+                df = pd.DataFrame(st.session_state.logs)
+                with logs_tab:
+                    st.dataframe(df, width='stretch', hide_index=True)
+            else:
+                with logs_tab:
+                    st.info("No logs available for this demo.")
+        else:
+            with st.spinner("Thinking… scraping… clustering… summarizing…"):
+                result = asyncio.run(run_agent(q))
+                # optionally save after every live run
+                save_demo_results(q, result)
 
         # --- Report ---
         st.subheader("Research Brief")
@@ -124,8 +183,8 @@ if run:
                 label = sentiment_label(score)
 
                 # get and clean sources
-                sources = st.session_state.cluster_data['urls'][t.get("cluster_id")]
-                # sources = list({s.strip() for s in t.get("sources", []) if s.strip()})
+                cluster_id = t.get("cluster_id")
+                sources = st.session_state.cluster_data.get("urls", {}).get(cluster_id, [])
 
                 with st.expander(f"{label} (Score {score:.1f}) - {t['topic']}"):
                     st.markdown(t.get("summary", "_No summary available._"))

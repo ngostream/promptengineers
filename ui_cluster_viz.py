@@ -96,7 +96,10 @@ def visualize_clusters(
 
     # Prepare plotting data
     # For hover, we only want to show the cluster size.
-    point_sizes = np.array([cluster_sizes[int(c)] for c in lab], dtype=int)
+    point_sizes = np.array([
+        cluster_sizes.get(int(c), 1)  # default to small size for noise
+        for c in lab
+    ], dtype=int)
 
     if PLOTLY_OK:
         # Build a minimal data dict
