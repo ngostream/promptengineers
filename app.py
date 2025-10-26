@@ -16,7 +16,7 @@ if 'logs' not in st.session_state:
     st.session_state.logs = []
 
 st.set_page_config(page_title="Insight Agent", layout="wide")
-st.title("Insight Agent - Autonomous Research Agent")
+st.title("Insight Agent")
 
 # --- UI input ---
 q = st.text_input("Topic", value="electric bikes this week")
