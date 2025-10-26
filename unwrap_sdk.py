@@ -6,7 +6,6 @@ from openai.types.chat import ChatCompletion
 from enum import Enum
 from dotenv import load_dotenv
 from typing import List
-import httpx
 
 load_dotenv()
 
@@ -118,42 +117,3 @@ def execute_tool_call(tool_call, available_tools: Dict[str, Type[BaseModel]]) ->
         return {"ok": False, "error": f"Tool {name} missing execute()"}
     except Exception as e:
         return {"ok": False, "error": f"{type(e).__name__}: {e}"}
-
-# --- Example Pydantic tool ---
-class GetWeatherTool(BaseModel):
-    location: str
-    unit: str = "celsius"
-
-    def execute(self) -> Dict[str, Any]:
-        return {
-            "location": self.location,
-            "temperature": "22°C" if self.unit == "celsius" else "72°F",
-            "condition": "sunny",
-            "unit": self.unit,
-        }
-
-# --- Example usage ---
-# async def main():
-#     messages = [
-#         {"role": "system", "content": "You are a helpful assistant."},
-#         {"role": "user", "content": "What's the weather in Paris?"},
-#     ]
-#     # Chat
-#     chat_resp = await create_openai_completion(messages, tools=[GetWeatherTool], tool_choice="auto")
-#     print("Chat response:", chat_resp.choices[0].message.content)
-
-#     # Tool execution
-#     if chat_resp.choices[0].message.tool_calls:
-#         result = execute_tool_call(chat_resp.choices[0].message.tool_calls[0], {"GetWeatherTool": GetWeatherTool})
-#         print("Tool result:", result)
-
-#     # Embeddings
-#     embeddings = await create_embeddings(
-#         ["Hello world", "Azure OpenAI is awesome"],
-#         model=HF_MODEL,
-#         api_key=HF_API_KEY
-#     )
-#     print("Embeddings shape:", len(embeddings), "x", len(embeddings[0]))
-
-# if __name__ == "__main__":
-#     asyncio.run(main())

@@ -12,7 +12,7 @@ from tools.scrape import ScrapeUrlsTool
 from tools.embed_cluster import ClusterFromVectorsTool
 from tools.sentiment import Cluster_Summarize_and_Score
 from agent.prompts import SYSTEM_PLANNER, SYSTEM_REPORTER
-from unwrap_sdk import HF_MODEL, HF_API_KEY
+
 
 AVAILABLE = {
     "WebSearchTool": WebSearchTool,
@@ -50,7 +50,7 @@ async def act_until_no_tools(messages, resp, log) -> Dict[str, Any]:
         )
     return {"messages": messages, "resp": resp}
 
-async def embed_and_cluster(min_cluster_size=3, log = print):
+async def embed_and_cluster(min_cluster_size=2, log = print):
     """
     Embeds item texts and clusters the vectors.
     Returns dict with texts, urls, and cluster results.
@@ -106,70 +106,75 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
     # extract the groups dict from clusters
     groups = clusters.get("groups", {})
     
-    for cid, idxs in groups.items():
-        cluster_texts = [texts[i] for i in idxs]
-        
+    batchesOfClusterTexts = []
+    sem = asyncio.Semaphore(7)
+    
+    async def summarizeSingleCluster(cluster_texts:List[str], cid: int, idxs: List[int]):
+        async with sem:
         # debug output
-        print(f"[DEBUG] Cluster {cid}: {len(idxs)} items")
-        log(f"Cluster {cid}: {len(idxs)} items")
-        if cluster_texts:
-            print(f"[DEBUG] First text sample: {cluster_texts[0][:200]}")
-            log(f"First text sample: {cluster_texts[0][:200]}")
-        # sent_result = await SimpleLexSentimentTool(
-        #     reasoning="Analyzing sentiment of cluster texts to gauge overall tone",
-        #     texts= cluster_texts     #[t[:500] for t in cluster_texts]  previous version
-        # ).execute()
+            print(f"[DEBUG] Cluster {cid}: {len(idxs)} items")
+            log(f"Cluster {cid}: {len(idxs)} items")
+            if cluster_texts:
+                print(f"[DEBUG] First text sample: {cluster_texts[0][:200]}")
+                log(f"First text sample: {cluster_texts[0][:200]}")
 
-        summary_result = await Cluster_Summarize_and_Score(
-            texts= cluster_texts,
-            original_prompt=original_prompt
-        ).execute()
-        relevancy = float(summary_result.get("relevancy", 0))
-        sentiment = float(summary_result.get("sentiment", 0))
-        summary = summary_result.get("summary", "")
+            summary_result = await Cluster_Summarize_and_Score(
+                texts= cluster_texts,
+                original_prompt=original_prompt
+            ).execute()
+            relevancy = float(summary_result.get("relevancy", 0))
+            sentiment = float(summary_result.get("sentiment", 0))
+            summary = summary_result.get("summary", "")
 
-        st.session_state.cluster_data['summaries'][cid] = summary
-        st.session_state.cluster_data['relevancies'][cid] = relevancy
-        st.session_state.cluster_data['sentiments'][cid] = sentiment
+            st.session_state.cluster_data['summaries'][cid] = summary
+            st.session_state.cluster_data['relevancies'][cid] = relevancy
+            st.session_state.cluster_data['sentiments'][cid] = sentiment
 
-        log(f"Cluster {cid} summary: {summary[:200]}... Relevancy: {relevancy}, Sentiment: {sentiment}")
-        # scores = sent_result.get("scores", [])
-        # s_avg = (sum(scores)/max(1, len(scores))) if scores else 0
-        
-        # summary = await summarize_cluster(cluster_texts, cid)
-        
-        # using sentiment as score
-        # score = s_avg
-        srcs = [urls[i] for i in idxs if i < len(urls) and urls[i]]
-        out.append({
-            "cluster_id": cid, 
-            "summary": summary, 
-            "score": sentiment, 
-            "relevancy": relevancy,
-            "sources": list(dict.fromkeys(srcs))[:5]
-        })
+            log(f"Cluster {cid} summary: {summary[:200]}... Relevancy: {relevancy}, Sentiment: {sentiment}")
+            # scores = sent_result.get("scores", [])
+            # s_avg = (sum(scores)/max(1, len(scores))) if scores else 0
+            
+            # summary = await summarize_cluster(cluster_texts, cid)
+            
+            # using sentiment as score
+            # score = s_avg
+            srcs = [urls[i] for i in idxs if i < len(urls) and urls[i]]
+            out.append({
+                "cluster_id": cid, 
+                "summary": summary, 
+                "score": sentiment, 
+                "relevancy": relevancy,
+                "sources": list(dict.fromkeys(srcs))[:5]
+            })
+
+    for cid, idxs in groups.items(): #{int: list[int]}
+        cluster_texts = [texts[i] for i in idxs] #list[list[str]] per cluster
+        batchesOfClusterTexts.append((cluster_texts, (cid,idxs)))
+    
+    tasks = [summarizeSingleCluster(i[0], i[1][0], i[1][1]) for i in batchesOfClusterTexts]
+    await asyncio.gather(*tasks)
     
     # sort themes by simple score desc
     out.sort(key=lambda x: x["relevancy"], reverse=True)
     return [o for o in out if o["relevancy"]>relevancy_threshold]
 
-async def summarize_cluster(texts: List[str], cid: int) -> str:
-    # Summarize a cluster with GPT-5-MINI
+# async def summarize_cluster(texts: List[str], cid: int) -> str:
+#     # Summarize a cluster with GPT-5-MINI
 
-    joined = "\n".join(texts) #summarize all text from the entire cluster
-    contentString = ""
-    if cid == -1:
-        contentString = "This is a list of responses that don't categorize into any clusters. \
-                        You summarize clusters into: Title + 4 bullets + 1-sentence why-it-matters. When summarizing, keep in mind that\
-                        these do not belong to any clusters, and may be anomalies."
-    else:
-        contentString = "You summarize clusters into: Title + 4 bullets + 1-sentence why-it-matters."
-    messages = [
-        {"role": "system", "content": contentString},
-        {"role": "user", "content": f"Summarize these items:\n{joined}"}
-    ]
-    resp = await create_openai_completion(messages, model=GPT5Deployment.GPT_5_MINI)
-    return resp.choices[0].message.content or ""
+#     joined = "\n".join(texts) #summarize all text from the entire cluster
+#     contentString = ""
+#     if cid == -1:
+#         contentString = "This is a list of responses that don't categorize into any clusters. \
+#                         You summarize clusters into: Title + 4 bullets + 1-sentence why-it-matters. When summarizing, keep in mind that\
+#                         these do not belong to any clusters, and may be anomalies."
+#     else:
+#         contentString = "You summarize clusters into: Title + 4 bullets + 1-sentence why-it-matters."
+#     messages = [
+#         {"role": "system", "content": contentString},
+#         {"role": "user", "content": f"Summarize these items:\n{joined}"}
+#     ]
+#     resp = await create_openai_completion(messages, model=GPT5Deployment.GPT_5_MINI)
+#     return resp.choices[0].message.content or ""
 
 async def write_report(topic: str, themes: List[Dict[str, Any]]) -> str:
     bullets = []
@@ -224,12 +229,14 @@ async def run_insight_scout(topic: str, log_fn = None) -> Dict[str, Any]:
     print(f"[DEBUG] Tool execution loop complete. Total messages: {len(messages)}")
 
     # 4) Embed + cluster in parallel
-    ec = await embed_and_cluster(min_cluster_size=3, log = log)
+    ec = await embed_and_cluster(min_cluster_size=2, log = log)
     print(f"[DEBUG] Embedding and clustering complete. Number of clusters: {len(ec['clusters'])}")
     log(f"Embedding and clustering complete. Number of clusters: {len(ec['clusters'])}")
 
     # 5) Summarize clusters + score
+    print("Summarizing Clusters at ", datetime.now())
     themes = await summarize_clusters(ec["texts"], ec["urls"], ec["clusters"], original_prompt = topic, log = log)
+    print("Summariziation done at ", datetime.now())
     print(f"[DEBUG] Summarization complete. Number of themes: {len(themes)}")
     log(f"Summarization complete. Number of themes: {len(themes)}")
 
