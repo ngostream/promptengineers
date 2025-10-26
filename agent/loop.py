@@ -137,16 +137,8 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
             st.session_state.cluster_data['relevancies'][cid] = relevancy
             st.session_state.cluster_data['sentiments'][cid] = sentiment
 
-            log(f"Cluster {cid}, Topic {topic}, summary: {summary[:200]}... Relevancy: {relevancy}, Sentiment: {sentiment}")
-            # scores = sent_result.get("scores", [])
-            # s_avg = (sum(scores)/max(1, len(scores))) if scores else 0
-            
-            # summary = await summarize_cluster(cluster_texts, cid)
-            
-            # using sentiment as score
-            # score = s_avg
-
-            # srcs = [urls[i] for i in idxs if i < len(urls) and urls[i]]
+            log(f"Cluster {cid} summary: {summary[:200]}... Relevancy: {relevancy}, Sentiment: {sentiment}")
+            srcs = [urls[i] for i in idxs if i < len(urls) and urls[i]]
             out.append({
                 "cluster_id": cid, 
                 "summary": summary, 
@@ -156,8 +148,8 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
                 # "sources": list(dict.fromkeys(srcs))[:5]
             })
 
-    for cid, idxs in groups.items(): #{int: list[int]}
-        cluster_texts = [texts[i] for i in idxs] #list[list[str]] per cluster
+    for cid, idxs in groups.items(): 
+        cluster_texts = [texts[i] for i in idxs] 
         batchesOfClusterTexts.append((cluster_texts, (cid,idxs)))
     
     tasks = [summarizeSingleCluster(i[0], i[1][0], i[1][1]) for i in batchesOfClusterTexts]
@@ -166,24 +158,6 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
     # sort themes by simple score desc
     out.sort(key=lambda x: x["relevancy"], reverse=True)
     return out
-
-# async def summarize_cluster(texts: List[str], cid: int) -> str:
-#     # Summarize a cluster with GPT-5-MINI
-
-#     joined = "\n".join(texts) #summarize all text from the entire cluster
-#     contentString = ""
-#     if cid == -1:
-#         contentString = "This is a list of responses that don't categorize into any clusters. \
-#                         You summarize clusters into: Title + 4 bullets + 1-sentence why-it-matters. When summarizing, keep in mind that\
-#                         these do not belong to any clusters, and may be anomalies."
-#     else:
-#         contentString = "You summarize clusters into: Title + 4 bullets + 1-sentence why-it-matters."
-#     messages = [
-#         {"role": "system", "content": contentString},
-#         {"role": "user", "content": f"Summarize these items:\n{joined}"}
-#     ]
-#     resp = await create_openai_completion(messages, model=GPT5Deployment.GPT_5_MINI)
-#     return resp.choices[0].message.content or ""
 
 async def write_report(topic: str, themes: List[Dict[str, Any]]) -> str:
     report_input = (
