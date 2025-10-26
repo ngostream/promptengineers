@@ -115,10 +115,8 @@ if run:
 
             visualize_clusters(
                 embeddings=np.array(vectors, dtype=np.float32),
-                labels=clusters["labels"],
-                texts=texts,
-                urls=urls,
-                title="Embedding clusters"
+                cluster_meta=clusters,
+                title="Embedding clusters",
             )
         else:
             st.info("No embeddings available to visualize yet (or lengths mismatch).")

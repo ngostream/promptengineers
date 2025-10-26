@@ -2,7 +2,7 @@
 
 import numpy as np
 import streamlit as st
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 
@@ -27,11 +27,8 @@ def _reduce_embeddings(emb: np.ndarray, method: str, seed: int) -> np.ndarray:
 
 def visualize_clusters(
     embeddings: np.ndarray,
-    labels: List[int],
-    texts: List[str],
-    urls: Optional[List[str]] = None,
+    cluster_meta: Dict[str, Any],
     title: str = "Embedding clusters",
-    cluster_meta: Optional[Dict[int, Dict[str, str]]] = None,
 ):
     """
     embeddings: (N, D)
@@ -44,10 +41,11 @@ def visualize_clusters(
           ...
         }
     """
-    assert len(embeddings) == len(labels) == len(texts), "Length mismatch"
-
     st.subheader(title)
-
+    labels = np.zeros(len(embeddings), dtype=int)
+    for i, ids in cluster_meta.get("groups", {}).items():
+        for idx in ids:
+            labels[idx] = int(i)
     # Controls
     colA, colB, colC = st.columns([1, 1, 1])
     with colA:
@@ -58,21 +56,19 @@ def visualize_clusters(
         sample_n = st.slider(
             "Max points to plot",
             min_value=200,
-            max_value=len(labels),
-            value=min(2000, len(labels)),
+            max_value=len(embeddings),
+            value=min(2000, len(embeddings)),
             step=100,
         )
 
     # Subsample for speed if needed
-    idx = np.arange(len(labels))
+    idx = np.arange(len(embeddings))
     if len(idx) > sample_n:
         rng = np.random.default_rng(seed)
         idx = rng.choice(idx, size=sample_n, replace=False)
 
     emb = np.asarray(embeddings)[idx]
     lab = np.asarray(labels)[idx]
-    txt = [texts[i] for i in idx]
-    url = [urls[i] if urls else "" for i in idx]
 
     # Normalize (cosine-friendly) if not already
     norms = np.linalg.norm(emb, axis=1, keepdims=True) + 1e-9
@@ -83,33 +79,28 @@ def visualize_clusters(
     x, y = coords[:, 0], coords[:, 1]
 
     # Cluster sizes (over the *plotted* subset)
-    cluster_indices: Dict[int, List[int]] = {}
-    for i, c in enumerate(lab):
-        cluster_indices.setdefault(int(c), []).append(i)
+    cluster_indices = cluster_meta.get("groups", {})
+    # cluster_indices: Dict[int, List[int]] = {}
+    # for i, c in enumerate(lab):
+    #     cluster_indices.setdefault(int(c), []).append(i)
     cluster_sizes = {c: len(ixs) for c, ixs in cluster_indices.items()}
 
     # Build legend entries (either from cluster_meta or derived)
     legend_rows = []
     for c, ixs in sorted(cluster_indices.items(), key=lambda kv: (kv[0] == -1, kv[0])):  # put -1 last
-        size = len(ixs)
-        if cluster_meta and c in cluster_meta:
-            desc = (cluster_meta[c].get("description") or "").strip()
-            link = (cluster_meta[c].get("link") or "").strip()
-        else:
-            # Derive: take a representative preview + a representative url
-            # pick the shortest non-empty text as a concise “desc”
-            rep_texts = [txt[i] for i in ixs if txt[i]]
-            desc = min(rep_texts, key=len) if rep_texts else ""
-            desc = (desc[:160] + "…") if len(desc) > 160 else desc
-            rep_urls = [url[i] for i in ixs if url[i]]
-            link = rep_urls[0] if rep_urls else ""
-
+        size = cluster_sizes[c]
+        desc = cluster_meta.get("summaries", {}).get(c, "")
+        relevancy = cluster_meta.get("relevancies", {}).get(c, 0.0)
+        sentiment = cluster_meta.get("sentiments", {}).get(c, "")
+        links = cluster_meta.get("urls", {}).get(c, [])
         legend_rows.append(
             {
                 "cluster": c,
                 "size": size,
                 "description": desc if desc else "(no description)",
-                "link": link,
+                "relevancy": relevancy,
+                "sentiment": sentiment,
+                "links": links,
             }
         )
 
@@ -153,10 +144,10 @@ def visualize_clusters(
         c = row["cluster"]
         size = row["size"]
         desc = row["description"]
-        link = row["link"]
+        links = row["links"]
+        relevancy = row["relevancy"]
+        sentiment = row["sentiment"]
         # Noise cluster (-1) callout
         label = "noise (-1)" if c == -1 else f"cluster {c}"
-        if link:
-            st.markdown(f"- **{label}** — size: {size} — {desc}  \n  ↳ [{link}]({link})")
-        else:
-            st.markdown(f"- **{label}** — size: {size} — {desc}")
+        links_str = ", ".join([f"[link {i+1}]({u})" for i, u in enumerate(links)])
+        st.markdown(f"- **{label}** — size: {size} - relevancy: {relevancy} - sentiment: {sentiment} — {desc}  \n  ↳ {links_str}")
