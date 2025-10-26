@@ -63,10 +63,41 @@ if run:
         themes = result.get("themes", [])
         if not themes:
             st.info("No themes found.")
-        for t in themes:
-            with st.expander(f"Score {t['score']} - Theme"):
-                st.markdown(t.get("summary", ""))
-                st.markdown("**Sources:**\n" + "\n".join([f"- {u}" for u in t.get("sources", [])]))
+        else:
+            def sentiment_label(score):
+                if score is None:
+                    return "Unknown"
+                if score == 0:
+                    return "Neutral"
+                elif score < -0.75:
+                    return "Strongly Negative"
+                elif score < -0.25:
+                    return "Moderately Negative"
+                elif score < 0:
+                    return "Slightly Negative"
+                elif score > 0.75:
+                    return "Strongly Positive"
+                elif score > 0.25:
+                    return "Moderately Positive"
+                else:
+                    return "Slightly Positive"
+
+            for t in themes:
+                score = t.get("score", 0)
+                label = sentiment_label(score)
+
+                # get and clean sources
+                sources = list({s.strip() for s in t.get("sources", []) if s.strip()})
+
+                with st.expander(f"{label} (Score {score:.1f}) - Theme"):
+                    st.markdown(t.get("summary", "_No summary available._"))
+
+                    if sources:
+                        st.markdown("**All Sources Used:**")
+                        for src in sources:
+                            st.markdown(f"- [{src}]({src})")
+                    else:
+                        st.markdown("_No sources listed._")
 
         # --- Cluster visualization ---
         st.subheader("Embedding Clusters")
