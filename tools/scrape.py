@@ -92,12 +92,16 @@ def scrape_amazon_reviews(page_url: str, delay: float = 1.0):
 
     return reviews
 
+BOILERPLATE = {"sign up", "click here", "read more", "see all", "home", "subscribe"}
+
 def clean_text(text: str) -> str:
     """Basic cleanup: strip whitespace and remove very short strings."""
     if not text:
         return ""
-    text = re.sub(r"\s+", " ", text).strip()  # collapse spaces/newlines
-    if len(text) < 5:  # discard extremely short items
+    text = re.sub(r"\s+", " ", text).strip()
+    if len(text) < 10:  # stricter minimum
+        return ""
+    if text.lower() in BOILERPLATE:
         return ""
     return text
 

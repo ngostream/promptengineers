@@ -50,7 +50,7 @@ async def act_until_no_tools(messages, resp, log) -> Dict[str, Any]:
         )
     return {"messages": messages, "resp": resp}
 
-async def embed_and_cluster(min_cluster_size=2, log = print):
+async def embed_and_cluster(min_cluster_size=3, log = print):
     """
     Embeds item texts and clusters the vectors.
     Returns dict with texts, urls, and cluster results.
@@ -85,7 +85,7 @@ async def embed_and_cluster(min_cluster_size=2, log = print):
         source_urls = set()
         for idx in indexes:
             if urls[idx] not in source_urls:
-                source_urls.add()
+                source_urls.add(urls[idx])
         st.session_state.cluster_data['urls'][label] = list(source_urls)
     
     # cluster_results contains: {"labels": [...], "groups": {cluster_id: [indices]}}
@@ -224,7 +224,7 @@ async def run_insight_scout(topic: str, log_fn = None) -> Dict[str, Any]:
     print(f"[DEBUG] Tool execution loop complete. Total messages: {len(messages)}")
 
     # 4) Embed + cluster in parallel
-    ec = await embed_and_cluster(min_cluster_size=2, log = log)
+    ec = await embed_and_cluster(min_cluster_size=3, log = log)
     print(f"[DEBUG] Embedding and clustering complete. Number of clusters: {len(ec['clusters'])}")
     log(f"Embedding and clustering complete. Number of clusters: {len(ec['clusters'])}")
 

@@ -6,17 +6,17 @@ class WebSearchTool(BaseModel):
     """Search web for a topic and return result snippets and urls."""
     reasoning: str = Field(..., description="Reasoning process before calling tool")
     query: str = Field(..., description="Search query")
-    limit: int = Field(10, ge=1, le=25, description="Max results")
-    sites: Optional[List[str]] = Field(None, description="Optional list of site domains to restrict search to")
+    sites: Optional[List[str]] = Field(None, description="Optional list of site domains to restrict search to. Note that we support custom parsing for amazon.com reviews and reddit.com comments.")
 
     def execute(self) -> Dict:
+        limit=5
         search_query = self.query
         if self.sites:
             # user-specified site filters
             site_filter = " OR ".join([f"site:{s}" for s in self.sites])
             search_query = f"{search_query} {site_filter}"
 
-        results = list(DDGS().text(search_query, max_results=self.limit))
+        results = list(DDGS().text(search_query, max_results=limit))
         out = [{
             "title": r.get("title"),
             "href": r.get("href"),
