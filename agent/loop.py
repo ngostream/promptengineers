@@ -241,8 +241,23 @@ async def run_insight_scout(topic: str, log_fn = None) -> Dict[str, Any]:
     log(f"Summarization complete. Number of themes: {len(themes)}")
 
     # 6) Final report
-    report = await write_report(topic, themes)
-    print(f"[DEBUG] Report generated. Length: {len(report)} characters")
-    log(f"Report generated. Length: {len(report)} characters")
+    print("Generating final report...")
+    max_retries = 3
+    attempt = 0
+    report = ""
+
+    while attempt < max_retries:
+        report = await write_report(topic, themes)
+        if report and len(report.strip()) > 0:
+            break  # success
+        attempt += 1
+        print(f"[DEBUG] Empty report on attempt {attempt}. Retrying...")
+        log(f"Empty report on attempt {attempt}. Retrying...")
+
+    if not report or len(report.strip()) == 0:
+        report = "Failed to generate report after multiple attempts. Try rerunning the agent."
+
+    print(f"[DEBUG] Report generated. Length: {len(report)} characters after {attempt+1} attempt(s)")
+    log(f"Report generated. Length: {len(report)} characters after {attempt+1} attempt(s)")
 
     return {"topic": topic, "themes": themes, "report": report}
