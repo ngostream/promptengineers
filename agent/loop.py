@@ -178,7 +178,7 @@ async def run_insight_scout(topic: str, log_fn = None) -> Dict[str, Any]:
         else:
             print(msg)
 
-    print(f"[DEBUG] Starting Insight Scout for topic: {topic}")
+    print(f"[DEBUG] Starting Insight Agent for topic: {topic}")
     
     # 1) Plan → initial search
     ctx = await plan(topic)
