@@ -34,7 +34,7 @@ with col2:
             font-size: 32px;
             color: gray;
         '>
-            Crappy Scraper For Your Scrappy Insights
+            The Crappy Scraper For Your Scrappy Insights
         </div>
         """,
         unsafe_allow_html=True
