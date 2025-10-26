@@ -12,6 +12,8 @@ if 'scraped_data' not in st.session_state:
     st.session_state.scraped_data = {'texts': [], 'urls': []}
 if 'scraped_embeddings' not in st.session_state:
     st.session_state.scraped_embeddings = {'texts': [], 'urls': [], 'vectors': []}
+if 'cluster_data' not in st.session_state:
+    st.session_state.cluster_data = {'labels': [], 'groups': {}, 'summaries': {}, 'relevancies': {}, 'sentiments': {}, 'urls': {}}
 if 'logs' not in st.session_state:
     st.session_state.logs = []
 
@@ -73,11 +75,12 @@ if run:
         urls = st.session_state.scraped_data.get("urls", [])
 
         if vectors and texts and len(vectors) == len(texts):
-            clusters = ClusterFromVectorsTool(
-                reasoning="Visualize clusters for the current run",
-                vectors=vectors,
-                min_cluster_size=5
-            ).execute()
+            # clusters = ClusterFromVectorsTool(
+            #     reasoning="Visualize clusters for the current run",
+            #     vectors=vectors,
+            #     min_cluster_size=5
+            # ).execute()
+            clusters = st.session_state.cluster_data
 
             visualize_clusters(
                 embeddings=np.array(vectors, dtype=np.float32),

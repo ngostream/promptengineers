@@ -80,6 +80,15 @@ async def embed_and_cluster(min_cluster_size=2, log = print):
     log("Clustering results...")
     cluster_results = cluster_tool.execute()
     
+    st.session_state.cluster_data['labels'] = cluster_results['labels']
+    st.session_state.cluster_data['groups'] = cluster_results['groups']
+    for label, indexes in cluster_results['groups'].items():
+        source_urls = set()
+        for idx in indexes:
+            if urls[idx] not in source_urls:
+                source_urls.add()
+        st.session_state.cluster_data['urls'][label] = list(source_urls)
+    
     # cluster_results contains: {"labels": [...], "groups": {cluster_id: [indices]}}
     # return with 'clusters' key for backward compatibility
     return {
@@ -119,6 +128,11 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
         relevancy = float(summary_result.get("relevancy", 0))
         sentiment = float(summary_result.get("sentiment", 0))
         summary = summary_result.get("summary", "")
+
+        st.session_state.cluster_data['summaries'][cid] = summary
+        st.session_state.cluster_data['relevancies'][cid] = relevancy
+        st.session_state.cluster_data['sentiments'][cid] = sentiment
+
         log(f"Cluster {cid} summary: {summary[:200]}... Relevancy: {relevancy}, Sentiment: {sentiment}")
         # scores = sent_result.get("scores", [])
         # s_avg = (sum(scores)/max(1, len(scores))) if scores else 0
