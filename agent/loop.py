@@ -138,13 +138,14 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
             
             # using sentiment as score
             # score = s_avg
-            srcs = [urls[i] for i in idxs if i < len(urls) and urls[i]]
+
+            # srcs = [urls[i] for i in idxs if i < len(urls) and urls[i]]
             out.append({
                 "cluster_id": cid, 
                 "summary": summary, 
                 "score": sentiment, 
                 "relevancy": relevancy,
-                "sources": list(dict.fromkeys(srcs))[:5]
+                # "sources": list(dict.fromkeys(srcs))[:5]
             })
 
     for cid, idxs in groups.items(): #{int: list[int]}
@@ -179,8 +180,8 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
 async def write_report(topic: str, themes: List[Dict[str, Any]]) -> str:
     bullets = []
     for t in themes:
-        src_lines = "\n  ".join([f"- {u}" for u in t['sources']]) or "- (no sources)"
-        bullets.append(f"### Theme (Score {t['score']})\n{t['summary']}\n\n**Sources:**\n  {src_lines}\n")
+        src_lines = "\n  ".join([f"- {u}" for u in st.session_state.cluster_data['urls'][t['cluster_id']]]) or "- (no sources)"
+        bullets.append(f"### Theme (Score {t['score']})\n{t['summary']}\n\n**Sources:**\n {src_lines}\n")
     content = "\n".join(bullets)
     messages = [
         {"role": "system", "content": SYSTEM_REPORTER},
@@ -230,8 +231,8 @@ async def run_insight_scout(topic: str, log_fn = None) -> Dict[str, Any]:
 
     # 4) Embed + cluster in parallel
     ec = await embed_and_cluster(min_cluster_size=2, log = log)
-    print(f"[DEBUG] Embedding and clustering complete. Number of clusters: {len(ec['clusters'])}")
-    log(f"Embedding and clustering complete. Number of clusters: {len(ec['clusters'])}")
+    print(f"[DEBUG] Embedding and clustering complete. Number of clusters: {len(ec['clusters']['labels'])}")
+    log(f"Embedding and clustering complete. Number of clusters: {len(ec['clusters']['labels'])}")
 
     # 5) Summarize clusters + score
     print("Summarizing Clusters at ", datetime.now())
@@ -241,23 +242,8 @@ async def run_insight_scout(topic: str, log_fn = None) -> Dict[str, Any]:
     log(f"Summarization complete. Number of themes: {len(themes)}")
 
     # 6) Final report
-    print("Generating final report...")
-    max_retries = 3
-    attempt = 0
-    report = ""
-
-    while attempt < max_retries:
-        report = await write_report(topic, themes)
-        if report and len(report.strip()) > 0:
-            break  # success
-        attempt += 1
-        print(f"[DEBUG] Empty report on attempt {attempt}. Retrying...")
-        log(f"Empty report on attempt {attempt}. Retrying...")
-
-    if not report or len(report.strip()) == 0:
-        report = "Failed to generate report after multiple attempts. Try rerunning the agent."
-
-    print(f"[DEBUG] Report generated. Length: {len(report)} characters after {attempt+1} attempt(s)")
-    log(f"Report generated. Length: {len(report)} characters after {attempt+1} attempt(s)")
+    report = await write_report(topic, themes)
+    print(f"[DEBUG] Report generated. Length: {len(report)} characters")
+    log(f"Report generated. Length: {len(report)} characters")
 
     return {"topic": topic, "themes": themes, "report": report}

@@ -87,7 +87,8 @@ if run:
                 label = sentiment_label(score)
 
                 # get and clean sources
-                sources = list({s.strip() for s in t.get("sources", []) if s.strip()})
+                sources = st.session_state.cluster_data['urls'][t.get("cluster_id")]
+                # sources = list({s.strip() for s in t.get("sources", []) if s.strip()})
 
                 with st.expander(f"{label} (Score {score:.1f}) - Theme"):
                     st.markdown(t.get("summary", "_No summary available._"))

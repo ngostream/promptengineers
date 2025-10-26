@@ -48,24 +48,27 @@ def visualize_clusters(
             labels[idx] = int(i)
     # Controls
     colA, colB, colC = st.columns([1, 1, 1])
-    with colA:
-        method = st.selectbox("Reducer", ["PCA (fast)", "t-SNE (slower)"], index=0)
-    with colB:
-        seed = st.number_input("Random seed", value=42, step=1)
-    with colC:
-        sample_n = st.slider(
-            "Max points to plot",
-            min_value=200,
-            max_value=len(embeddings),
-            value=min(2000, len(embeddings)),
-            step=100,
-        )
+    method = "PCA (fast)"
+    seed = 42
+    # with colA:
+    #     method = st.selectbox("Reducer", ["PCA (fast)", "t-SNE (slower)"], index=0)
+    # with colB:
+    #     seed = st.number_input("Random seed", value=42, step=1)
+    # with colC:
+    #     sample_n = st.slider(
+    #         "Max points to plot",
+    #         min_value=200,
+    #         max_value=len(embeddings),
+    #         value=min(2000, len(embeddings)),
+    #         step=100,
+    #     )
 
     # Subsample for speed if needed
+    
     idx = np.arange(len(embeddings))
-    if len(idx) > sample_n:
-        rng = np.random.default_rng(seed)
-        idx = rng.choice(idx, size=sample_n, replace=False)
+    # if len(idx) > sample_n:
+    #     rng = np.random.default_rng(seed)
+    #     idx = rng.choice(idx, size=sample_n, replace=False)
 
     emb = np.asarray(embeddings)[idx]
     lab = np.asarray(labels)[idx]
