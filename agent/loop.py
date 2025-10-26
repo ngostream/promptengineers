@@ -147,16 +147,8 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
             st.session_state.cluster_data['relevancies'][cid] = relevancy
             st.session_state.cluster_data['sentiments'][cid] = sentiment
 
-            log(f"Cluster {cid}, Topic {topic}, summary: {summary[:200]}... Relevancy: {relevancy}, Sentiment: {sentiment}")
-            # scores = sent_result.get("scores", [])
-            # s_avg = (sum(scores)/max(1, len(scores))) if scores else 0
-            
-            # summary = await summarize_cluster(cluster_texts, cid)
-            
-            # using sentiment as score
-            # score = s_avg
+            log(f'Cluster {cid} Analysis', f"Count {len(idxs)}, Topic {topic}, Summary: {summary}, Relevancy: {relevancy}, Sentiment: {sentiment}")
 
-            # srcs = [urls[i] for i in idxs if i < len(urls) and urls[i]]
             out.append({
                 "cluster_id": cid, 
                 "summary": summary, 
