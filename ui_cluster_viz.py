@@ -142,7 +142,7 @@ def visualize_clusters(
         # Noise cluster (-1) callout
         label = "noise (-1)" if c == -1 else f"cluster {c}: {topic}"
         links_str = ", ".join([f"[link {i+1}]({u})" for i, u in enumerate(links)])
-        st.markdown(f"- **{label}** — size: {size} - relevancy: {relevancy} - sentiment: {sentiment}\n  ↳ {links_str}")
+        st.markdown(f"- **{label}** — size: {size} - relevancy: {relevancy} - sentiment: {sentiment} \n ↳ {links_str}")
 
 def visualize_family_scores(
     urls: list[str],
