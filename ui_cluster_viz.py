@@ -52,27 +52,8 @@ def visualize_clusters(
         for idx in ids:
             labels[idx] = int(i)
     # Controls
-    # colA, colB, colC = st.columns([1, 1, 1])
     method = "PCA (fast)"
     seed = 42
-    # with colA:
-    #     method = st.selectbox("Reducer", ["PCA (fast)", "t-SNE (slower)"], index=0)
-    # with colB:
-    #     seed = st.number_input("Random seed", value=42, step=1)
-    # with colC:
-    #     sample_n = st.slider(
-    #         "Max points to plot",
-    #         min_value=200,
-    #         max_value=len(embeddings),
-    #         value=min(2000, len(embeddings)),
-    #         step=100,
-    #     )
-
-    # Subsample for speed if needed
-    
-    # if len(idx) > sample_n:
-    #     rng = np.random.default_rng(seed)
-    #     idx = rng.choice(idx, size=sample_n, replace=False)
 
     emb = np.asarray(embeddings)[idxs]
     lab = np.asarray(labels)[idxs]
@@ -96,7 +77,7 @@ def visualize_clusters(
     legend_rows = []
     for c, ixs in sorted(cluster_indices.items(), key=lambda kv: (kv[0] == -1, kv[0])):  # put -1 last
         size = cluster_sizes[c]
-        desc = cluster_meta.get("summaries", {}).get(c, "")
+        # desc = cluster_meta.get("summaries", {}).get(c, "")
         relevancy = cluster_meta.get("relevancies", {}).get(c, 0.0)
         sentiment = cluster_meta.get("sentiments", {}).get(c, "")
         links = cluster_meta.get("urls", {}).get(c, [])
@@ -105,7 +86,7 @@ def visualize_clusters(
             {
                 "cluster": c,
                 "size": size,
-                "description": desc if desc else "(no description)",
+                # "description": desc if desc else "(no description)",
                 "relevancy": relevancy,
                 "sentiment": sentiment,
                 "links": links,
@@ -149,10 +130,11 @@ def visualize_clusters(
 
     # Legend under the plot
     st.markdown("### Legend")
+    legend_rows = legend_rows.sorted(key=lambda r: (r["cluster"] == -1, r["cluster"]))  # noise last
     for row in legend_rows:
         c = row["cluster"]
         size = row["size"]
-        desc = row["description"]
+        # desc = row["description"]
         links = row["links"]
         relevancy = row["relevancy"]
         sentiment = row["sentiment"]
@@ -160,7 +142,7 @@ def visualize_clusters(
         # Noise cluster (-1) callout
         label = "noise (-1)" if c == -1 else f"cluster {c}: {topic}"
         links_str = ", ".join([f"[link {i+1}]({u})" for i, u in enumerate(links)])
-        st.markdown(f"- **{label}** — size: {size} - relevancy: {relevancy} - sentiment: {sentiment} — {desc}  \n  ↳ {links_str}")
+        st.markdown(f"- **{label}** — size: {size} - relevancy: {relevancy} - sentiment: {sentiment}\n  ↳ {links_str}")
 
 def visualize_family_scores(
     urls: list[str],
