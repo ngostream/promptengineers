@@ -3,10 +3,10 @@ from pydantic import BaseModel, Field
 from ddgs import DDGS
 
 class WebSearchTool(BaseModel):
-    """Search web for a topic and return result snippets and urls."""
+    """Search web for a topic and returns the top 5 result snippets and urls."""
     reasoning: str = Field(..., description="Reasoning process before calling tool")
     query: str = Field(..., description="Search query")
-    sites: Optional[List[str]] = Field(None, description="Optional list of site domains to restrict search to. Note that we support custom parsing for amazon.com reviews and reddit.com comments.")
+    sites: Optional[List[str]] = Field(None, description="Optional list of site domains to restrict search to. Note that we support custom parsing for amazon.com reviews and reddit.com comments, so those sites may yield better data points.")
 
     def execute(self) -> Dict:
         limit=5

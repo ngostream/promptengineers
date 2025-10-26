@@ -1,10 +1,11 @@
 import streamlit as st
 import asyncio
 import numpy as np
+import pandas as pd
 
 from agent.loop import run_insight_scout
 from tools.embed_cluster import ClusterFromVectorsTool
-from ui_cluster_viz import visualize_clusters  # make sure ui_cluster_viz.py is in repo root
+from ui_cluster_viz import visualize_clusters, visualize_family_scores  # make sure ui_cluster_viz.py is in repo root
 
 
 # --- Session state initialization ---
@@ -30,12 +31,17 @@ results_tab, logs_tab = st.tabs(["Results", "Logs"])
 with logs_tab:
     log_box = st.empty()
 
-def add_log(msg: str):
-    """Append a log message and re-render logs tab."""
-    st.session_state.logs.append(msg)
-    log_box.markdown(
-        "\n".join(f"- {line}" for line in st.session_state.logs[-200:]) or "_no logs yet_"
-    )
+# def add_log(msg: str):
+#     """Append a log message and re-render logs tab."""
+#     st.session_state.logs.append(msg)
+#     log_box.markdown(
+#         "\n".join(f"- {line}" for line in st.session_state.logs[-200:]) or "_no logs yet_"
+#     )
+
+def add_log_table(event_type, description):
+    st.session_state.logs.append({"Event": event_type, "Description": description})
+    df = pd.DataFrame(st.session_state.logs[-200:])  # show only latest 200
+    log_box.dataframe(df, width='stretch', hide_index=True)
 
 async def run_agent(topic):
     """Run the agent asynchronously with real-time logging."""
@@ -43,11 +49,12 @@ async def run_agent(topic):
     st.session_state.scraped_embeddings = {'texts': [], 'urls': [], 'vectors': []}
     st.session_state.cluster_data = {'labels': [], 'groups': {}, 'summaries': {}, 'relevancies': {}, 'sentiments': {}, 'urls': {}, 'topics': {}}
     st.session_state.logs = []
-    add_log(f"Starting research on '{topic}'...")
+    # add_log(f"Starting research on '{topic}'...")
+    add_log_table("System", f"Starting research on '{topic}'...")
 
-    result = await run_insight_scout(topic, log_fn=add_log)
+    result = await run_insight_scout(topic, log_fn=add_log_table)
 
-    add_log("Agent run complete.")
+    add_log_table("System", "Agent run complete.")
     return result
 
 
@@ -107,9 +114,21 @@ if run:
         vectors = st.session_state.scraped_embeddings.get("vectors", [])
         texts = st.session_state.scraped_data.get("texts", [])
         urls = st.session_state.scraped_data.get("urls", [])
+        cluster_groups = st.session_state.cluster_data.get("groups", {})
+        cluster_relevancies = st.session_state.cluster_data.get("relevancies", {})
+        cluster_sentiments = st.session_state.cluster_data.get("sentiments", {})
         clusters = st.session_state.cluster_data
 
         if clusters:
+            
+            visualize_family_scores(urls,
+                cluster_groups,
+                cluster_relevancies,
+                "Average Cluster Relevancy by Domain")
+            visualize_family_scores(urls,
+                cluster_groups,
+                cluster_sentiments,
+                "Average Cluster Sentiment by Domain")
             visualize_clusters(
                 embeddings=np.array(vectors, dtype=np.float32),
                 cluster_meta=clusters,

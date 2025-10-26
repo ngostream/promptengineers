@@ -33,13 +33,24 @@ async def act_until_no_tools(messages, resp, log) -> Dict[str, Any]:
     # Execute any tool calls from model and append results; allow search + scrape
     while True:
         msg = resp.choices[0].message
-        log(msg)
+        # log(msg)
         if not msg.tool_calls:
-            log(messages)
+            # log(messages)
             break
         for call in msg.tool_calls:
             result = execute_tool_call(call, AVAILABLE)
-            log(json.dumps(result))
+            # log(json.dumps(result))
+                        
+            if 'args' in result:
+                log(f'Agent input to {call.function.name}', json.dumps(result['args']))
+
+            tool = result['tool'] if 'tool' in result else None
+            if not tool:
+                log('System', f"Tool {call.function.name} execution failed: {result.get('error', 'unknown error')}")
+            else:
+                log(f'Output from agent calling {call.function.name}', json.dumps(result['data']))
+                
+
             messages.append({"role": "assistant", "tool_calls": [call]})
             messages.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(result)})
         resp = await create_openai_completion(
@@ -60,11 +71,11 @@ async def embed_and_cluster(min_cluster_size=2, log = print):
     urls = items.get('urls', [])
     
     # get embeddings using HF Inference Providers API
-    log('Creating embeddings...')
+    log('System','Creating embeddings...')
     vectors = await create_embeddings(
         inputs=texts
     )
-    log(f'Created {len(vectors)} embeddings.')
+    log('System',f'Embedded {len(vectors)} chunks.')
     st.session_state.scraped_embeddings['texts'] += texts
     st.session_state.scraped_embeddings['urls'] += urls
     st.session_state.scraped_embeddings['vectors'] += vectors
@@ -76,7 +87,7 @@ async def embed_and_cluster(min_cluster_size=2, log = print):
         min_cluster_size=min_cluster_size
     )
     print("Clustering results...")
-    log("Clustering results...")
+    log('System',"Clustering results...")
     cluster_results = cluster_tool.execute()
     
     # st.session_state.cluster_data['labels'] = cluster_results['labels']
@@ -114,10 +125,9 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
         async with sem:
         # debug output
             print(f"[DEBUG] Cluster {cid}: {len(idxs)} items")
-            log(f"Cluster {cid}: {len(idxs)} items")
-            if cluster_texts:
-                print(f"[DEBUG] First text sample: {cluster_texts[0][:200]}")
-                log(f"First text sample: {cluster_texts[0][:200]}")
+            # if cluster_texts:
+            #     print(f"[DEBUG] First text sample: {cluster_texts[0][:200]}")
+            #     log(f"First text sample: {cluster_texts[0][:200]}")
 
             summary_result = await Cluster_Summarize_and_Score(
                 texts= cluster_texts,
@@ -137,7 +147,7 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
             st.session_state.cluster_data['relevancies'][cid] = relevancy
             st.session_state.cluster_data['sentiments'][cid] = sentiment
 
-            log(f"Cluster {cid}, Topic {topic}, summary: {summary[:200]}... Relevancy: {relevancy}, Sentiment: {sentiment}")
+            log(f'Cluster {cid} Analysis', f"Count {len(idxs)}, Topic {topic}, Summary: {summary}, Relevancy: {relevancy}, Sentiment: {sentiment}")
             # scores = sent_result.get("scores", [])
             # s_avg = (sum(scores)/max(1, len(scores))) if scores else 0
             
@@ -217,11 +227,16 @@ async def write_report(topic: str, themes: List[Dict[str, Any]]) -> str:
     return resp.choices[0].message.content or ""
 
 async def run_insight_scout(topic: str, log_fn = None) -> Dict[str, Any]:
-    def log(msg):
+    def log(type, msg):
         if log_fn:
-            log_fn(msg)
+            log_fn(type, msg)
         else:
             print(msg)
+    # def log(msg):
+    #     if log_fn:
+    #         log_fn(msg)
+    #     else:
+    #         print(msg)
 
     print(f"[DEBUG] Starting Insight Agent for topic: {topic}")
     
@@ -233,21 +248,21 @@ async def run_insight_scout(topic: str, log_fn = None) -> Dict[str, Any]:
     # Manual search if model didn't call tools
     if not resp.choices[0].message.tool_calls:
         print("[DEBUG] No tool calls from model. Running manual search...")
-        log('No tool calls from model. Running manual search...')
+        log('System','No tool calls from model. Running manual search...')
         search_tool = WebSearchTool(query=topic, reasoning="Manual search", limit=10)
         search_results = search_tool.execute()
         print(f"[DEBUG] Manual search results: {len(search_results.get('results', []))} items")
-        log(f"Manual search results: {len(search_results.get('results', []))} items")
+        log('System',f"Manual search results: {len(search_results.get('results', []))} items")
         messages.append({"role": "tool", "tool_call_id": "manual_search", "content": json.dumps(search_results)})
 
         hrefs = [r["href"] for r in search_results.get("results", []) if r.get("href")]
         if hrefs:
             print(f"[DEBUG] Running manual scrape on {len(hrefs[:8])} URLs")
-            log(f"Running manual scrape on {len(hrefs[:8])} URLs")
+            log('System',f"Running manual scrape on {len(hrefs[:8])} URLs")
             scrape_tool = ScrapeUrlsTool(urls=hrefs[:8])
             scrape_results = scrape_tool.execute()
             print(f"[DEBUG] Manual scrape results: {len(scrape_results.get('docs', []))} docs")
-            log(f"Manual scrape results: {len(scrape_results.get('docs', []))} docs")
+            log('System',f"Manual scrape results: {len(scrape_results.get('docs', []))} docs")
             messages.append({"role": "tool", "tool_call_id": "manual_scrape", "content": json.dumps(scrape_results)})
 
     # 2) Let the model call tools (search first; it may then ask to scrape)
@@ -258,14 +273,14 @@ async def run_insight_scout(topic: str, log_fn = None) -> Dict[str, Any]:
     # 4) Embed + cluster in parallel
     ec = await embed_and_cluster(min_cluster_size=2, log = log)
     print(f"[DEBUG] Embedding and clustering complete. Number of clusters: {len(ec['clusters']['labels'])}")
-    log(f"Embedding and clustering complete. Number of clusters: {len(ec['clusters']['labels'])}")
+    log('System',f"Embedding and clustering complete. Number of clusters: {len(ec['clusters']['labels'])}")
 
     # 5) Summarize clusters + score
     print("Summarizing Clusters at ", datetime.now())
     themes = await summarize_clusters(ec["texts"], ec["urls"], ec["clusters"], original_prompt = topic, log = log)
     print("Summariziation done at ", datetime.now())
     print(f"[DEBUG] Summarization complete. Number of themes: {len(themes)}")
-    log(f"Summarization complete. Number of themes: {len(themes)}")
+    log('System',f"Summarization complete. Number of themes: {len(themes)}")
 
     # 6) Final report
     print("Generating final report...")
@@ -279,12 +294,12 @@ async def run_insight_scout(topic: str, log_fn = None) -> Dict[str, Any]:
             break  # success
         attempt += 1
         print(f"[DEBUG] Empty report on attempt {attempt}. Retrying...")
-        log(f"Empty report on attempt {attempt}. Retrying...")
+        log('System',f"Empty report on attempt {attempt}. Retrying...")
 
     if not report or len(report.strip()) == 0:
         report = "Failed to generate report after multiple attempts. Try rerunning the agent."
 
     print(f"[DEBUG] Report generated. Length: {len(report)} characters after {attempt+1} attempt(s)")
-    log(f"Report generated. Length: {len(report)} characters after {attempt+1} attempt(s)")
+    log('System',f"Report generated. Length: {len(report)} characters after {attempt+1} attempt(s)")
 
     return {"topic": topic, "themes": themes, "report": report}

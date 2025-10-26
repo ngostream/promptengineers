@@ -13,3 +13,4 @@ hdbscan
 transformers
 plotly
 matplotlib
+tldextract

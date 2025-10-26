@@ -5,7 +5,8 @@ import streamlit as st
 from typing import List, Dict, Optional, Any
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
-
+from site_score_aggregator import compute_family_scores
+import pandas as pd
 try:
     import plotly.express as px
     PLOTLY_OK = True
@@ -160,3 +161,59 @@ def visualize_clusters(
         label = "noise (-1)" if c == -1 else f"cluster {c}: {topic}"
         links_str = ", ".join([f"[link {i+1}]({u})" for i, u in enumerate(links)])
         st.markdown(f"- **{label}** — size: {size} - relevancy: {relevancy} - sentiment: {sentiment} — {desc}  \n  ↳ {links_str}")
+
+def visualize_family_scores(
+    urls: list[str],
+    cluster_groups: dict[int, list[int]],
+    cluster_scores: dict[int, float],
+    title: str = "Average Cluster Scores by Domain",
+    agg: str = 'mean',
+):
+    """
+    Visualize aggregated cluster scores by URL family as a bar chart.
+
+    Parameters
+    ----------
+    urls : list of str
+        List of URLs.
+    cluster_groups : list of (int, list[int])
+        Mapping of cluster ID → indices of URLs in that cluster.
+    cluster_scores : dict[int, float]
+        Mapping of cluster ID → score (e.g., sentiment or relevancy).
+    title : str
+        Plot title.
+    agg : {'mean', 'max', 'sum'}
+        Aggregation function for per-domain scores.
+    """
+    st.subheader(title)
+
+    # Compute family-level aggregates
+    family_scores = compute_family_scores(urls, cluster_groups, cluster_scores, agg=agg)
+
+    if not family_scores:
+        st.warning("No family scores to display.")
+        return
+
+    # Create dataframe for plotting
+    df = pd.DataFrame(list(family_scores.items()), columns=["Domain", "Score"])
+    df = df.sort_values("Score", ascending=False)
+
+    # Plot bar chart
+    fig = px.bar(
+        df,
+        x="Domain",
+        y="Score",
+        text="Score",
+        title=title,
+        color="Score",
+        color_continuous_scale="Blues",
+    )
+    fig.update_traces(texttemplate="%{text:.2f}", textposition="outside", cliponaxis=False)
+    fig.update_layout(
+        xaxis_title="Domain (Family)",
+        yaxis_title="Aggregated Score",
+        xaxis_tickangle=-30,
+        plot_bgcolor="black",
+    )
+
+    st.plotly_chart(fig, use_container_width=True, config={"displaylogo": False})
