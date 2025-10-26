@@ -1,3 +1,4 @@
+import time
 import streamlit as st
 import asyncio
 import numpy as np
@@ -39,7 +40,14 @@ with logs_tab:
 #     )
 
 def add_log_table(event_type, description):
-    st.session_state.logs.append({"Event": event_type, "Description": description})
+    current_time = time.time()
+    elapsed = current_time - st.session_state.start_time
+    st.session_state.logs.append({
+        "Time (s)": f"{elapsed:.2f}",
+        "Event": event_type,
+        "Description": description
+    })
+    # st.session_state.logs.append({"Event": event_type, "Description": description})
     df = pd.DataFrame(st.session_state.logs[-200:])  # show only latest 200
     log_box.dataframe(df, width='stretch', hide_index=True)
 
@@ -49,6 +57,7 @@ async def run_agent(topic):
     st.session_state.scraped_embeddings = {'texts': [], 'urls': [], 'vectors': []}
     st.session_state.cluster_data = {'labels': [], 'groups': {}, 'summaries': {}, 'relevancies': {}, 'sentiments': {}, 'urls': {}, 'topics': {}}
     st.session_state.logs = []
+    st.session_state.start_time = time.time()
     # add_log(f"Starting research on '{topic}'...")
     add_log_table("System", f"Starting research on '{topic}'...")
 
