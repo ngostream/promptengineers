@@ -125,17 +125,19 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
             ).execute()
             relevancy = float(summary_result.get("relevancy", 0))
             sentiment = float(summary_result.get("sentiment", 0))
-            summary = summary_result.get("summary", "")
+            summary = summary_result.get("summary", "Summary unavailable.")
+            topic = summary_result.get("topic", "Topic preview unavailable.")
             # {'labels': [], 'groups': {}, 'summaries': {}, 'relevancies': {}, 'sentiments': {}, 'urls': {}}
             if relevancy<relevancy_threshold:
                 return
             st.session_state.cluster_data['labels'].append(cid)
             st.session_state.cluster_data['groups'][cid] = idxs
             st.session_state.cluster_data['summaries'][cid] = summary
+            st.session_state.cluster_data['topics'][cid] = topic
             st.session_state.cluster_data['relevancies'][cid] = relevancy
             st.session_state.cluster_data['sentiments'][cid] = sentiment
 
-            log(f"Cluster {cid} summary: {summary[:200]}... Relevancy: {relevancy}, Sentiment: {sentiment}")
+            log(f"Cluster {cid}, Topic {topic}, summary: {summary[:200]}... Relevancy: {relevancy}, Sentiment: {sentiment}")
             # scores = sent_result.get("scores", [])
             # s_avg = (sum(scores)/max(1, len(scores))) if scores else 0
             
@@ -150,6 +152,7 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
                 "summary": summary, 
                 "score": sentiment, 
                 "relevancy": relevancy,
+                "topic": topic,
                 # "sources": list(dict.fromkeys(srcs))[:5]
             })
 
@@ -183,14 +186,32 @@ async def summarize_clusters(texts: List[str], urls: List[str], clusters: Dict[s
 #     return resp.choices[0].message.content or ""
 
 async def write_report(topic: str, themes: List[Dict[str, Any]]) -> str:
+    report_input = (
+        f"Original Prompt: {topic}\n\n"
+        "Below are clustered findings, each summarizing related responses. Sentiment scores are between -1 and 1 with -1 being negative and 1 positive. Relevancy scores are between 0 and 1 with 0 being irrelevant and 1 highly relevant.\n"
+        "Please synthesize an overall report that highlights key insights and patterns, weighted by cluster relevancy.\n\nClustered Findings:\n"
+    )
     bullets = []
     for t in themes:
-        src_lines = "\n  ".join([f"- {u}" for u in st.session_state.cluster_data['urls'][t['cluster_id']]]) or "- (no sources)"
-        bullets.append(f"### Theme (Score {t['score']})\n{t['summary']}\n\n**Sources:**\n {src_lines}\n")
+        cluster_id = t['cluster_id']
+        summary = t['summary']
+        sentiment = t['score']
+        relevancy = t['relevancy']
+        topic_phrase = t['topic']
+        src_lines = "\n  ".join([f"- {u}" for u in st.session_state.cluster_data['urls'][t['cluster_id']]]) #or "- (no sources)"
+
+        bullets.append(
+            f"### Cluster {cluster_id}: {topic_phrase}\n"
+            f"**Relevancy:** {relevancy:.2f} | **Sentiment:** {sentiment:.2f}\n"
+            f"**Summary:** {summary}\n"
+            f"**Top Sources:**\n{src_lines}\n"
+        )
+
     content = "\n".join(bullets)
+    report_input+=content
     messages = [
         {"role": "system", "content": SYSTEM_REPORTER},
-        {"role": "user", "content": f"Topic: {topic}\n\nThemes:\n{content}"}
+        {"role": "user", "content": report_input}
     ]
     resp = await create_openai_completion(messages, model=GPT5Deployment.GPT_5)
     return resp.choices[0].message.content or ""

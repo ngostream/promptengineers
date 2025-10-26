@@ -99,6 +99,7 @@ def visualize_clusters(
         relevancy = cluster_meta.get("relevancies", {}).get(c, 0.0)
         sentiment = cluster_meta.get("sentiments", {}).get(c, "")
         links = cluster_meta.get("urls", {}).get(c, [])
+        topic = cluster_meta.get("topics", {}).get(c, "")
         legend_rows.append(
             {
                 "cluster": c,
@@ -107,6 +108,7 @@ def visualize_clusters(
                 "relevancy": relevancy,
                 "sentiment": sentiment,
                 "links": links,
+                "topic": topic,
             }
         )
 
@@ -153,7 +155,8 @@ def visualize_clusters(
         links = row["links"]
         relevancy = row["relevancy"]
         sentiment = row["sentiment"]
+        topic = row["topic"]
         # Noise cluster (-1) callout
-        label = "noise (-1)" if c == -1 else f"cluster {c}"
+        label = "noise (-1)" if c == -1 else f"cluster {c}: {topic}"
         links_str = ", ".join([f"[link {i+1}]({u})" for i, u in enumerate(links)])
         st.markdown(f"- **{label}** — size: {size} - relevancy: {relevancy} - sentiment: {sentiment} — {desc}  \n  ↳ {links_str}")

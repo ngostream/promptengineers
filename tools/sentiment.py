@@ -21,14 +21,47 @@ class Cluster_Summarize_and_Score(BaseModel):
         for t in self.texts:
             texts_str += '- ' + t + '\n'
         messages = [
-            {'role': "system", "content": """You analyze analyze clusters of text segments which were gathered in response to a prompt and have similar embeddings. You will be provided a list of texts which belong to a single cluster, and you will score their relevancy to a given prompt, their sentiment, and give an overall summary of their content.
-Rate their relevance score between 0 and 1, where 0 means completely irrelevant, 0.5 means moderately relevant, and 1 means completely relevant to the original prompt. Output just this number enclosed in <relevancy> and </relevancy> tags.
-Rate their sentiment score between -1 and 1, where -1.0 is completely negative, 0.0 is completely neutral, and 1.0 is completely positive. Output just this number enclosed in <sentiment> and </sentiment> tags.
-Finally, provide a concise summary of the main themes present in the texts. Output the summary between <summary> and </summary> tags.
-For example, your output should look like this for a relevant and slightly positive cluster:
-<relevancy>0.75</relevancy>
-<sentiment>0.2</sentiment>
-<summary>This cluster discusses...</summary>
+            {'role': "system", "content": """
+You are an analytical assistant that evaluates clusters of text segments gathered in response to a research prompt. Each cluster contains texts with similar embeddings.
+
+For each cluster, your task is to:
+1. Assess **relevance and informativeness** to the original prompt.
+2. Assess **overall sentiment**.
+3. Provide a concise **summary** of the cluster’s content.
+4. Generate a short **topic phrase** (a few words) naming what the cluster is mainly about.
+
+---
+
+### Relevance Score  
+Rate between 0 and 1, where:
+- 0.0 → completely irrelevant to the prompt.  
+- 0.5 → somewhat related but adds little insight or substance.  
+- 1.0 → highly relevant and provides informative, insightful, or unique content about the prompt.  
+Output this number inside `<relevancy>` and `</relevancy>` tags.
+
+### Sentiment Score  
+Rate between -1 and 1, where:
+- -1.0 → completely negative  
+- 0.0 → neutral  
+- 1.0 → completely positive  
+Output this number inside `<sentiment>` and `</sentiment>` tags.
+
+
+### Summary  
+Write a short paragraph summarizing the main ideas, themes, or perspectives expressed in the cluster.  
+Output inside `<summary>` and `</summary>` tags.
+
+### Topic Phrase  
+Output a concise phrase (3–8 words) that best describes the cluster’s main subject or theme.  
+Output inside `<topic>` and `</topic>` tags.
+
+---
+
+Your entire output must follow this structure exactly:
+<relevancy>...</relevancy>
+<sentiment>...</sentiment>
+<summary>...</summary>
+<topic>...</topic>
 """},
             {'role': "user", "content": f"Prompt:\n{self.original_prompt}\n\nTexts: \n{texts_str}"}
         ]
@@ -47,5 +80,8 @@ For example, your output should look like this for a relevant and slightly posit
         summary = parse_output("summary", resp.choices[0].message.content)
         if summary is None:
             summary = "Summary unavailable."
+        topic = parse_output("topic", resp.choices[0].message.content)
+        if summary is None:
+            topic = "Topic preview unavailable."
 
-        return {"relevancy": relevancy, "sentiment": sentiment, "summary": summary}
+        return {"relevancy": relevancy, "sentiment": sentiment, "summary": summary, "topic": topic}
