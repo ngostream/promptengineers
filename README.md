@@ -15,7 +15,7 @@
 ## How it works
 - **Search**: Google Custom Search API via `WebSearchTool`  
 - **Scrape**: Optional content fetch from URLs via `ScrapeUrlsTool` (initiated by the model)
-- **Embeddings**: Hugging Face `sentence-transformers/all-MiniLM-L6-v2`
+- **Embeddings**: Azure OpenAI `text-embedding-3-small`
 - **Clustering**: HDBSCAN over normalized vectors
 - **Summaries**: GPT-5-MINI per cluster; final brief with GPT-5
 
@@ -26,4 +26,28 @@
 - Expect clustering results to vary slightly between DDGS and Google CSE due to different search results
 
 ## Safety & Respect
-Use responsibly. Comply with each site’s Terms of Service and robots.txt. For production, consider caching and rate limiting.
+Use responsibly, comply with each site’s Terms of Service and robots.txt. For production, add caching and rate limiting.
+
+## Screenshots
+
+### Design
+![ScrapAgent overview](assets/scrapagent-design.png)
+
+### Home Page - Enter Your Prompt
+![Home Page](assets/home-page.png)
+
+### Agent Logs - See the Process
+![Agent Logs](assets/agent-logs.png)
+
+### View Research Brief
+![Research Brief](assets/research-brief.png)
+
+### See Themes in Depth
+![Theme Dropdowns](assets/theme-dropdowns.png)
+
+### View Charts
+![Relevancy Chart (By Domain)](assets/relevancy-graph.png)
+![Sentiment Chart (By Domain)](assets/sentiment-graph.png)
+![Cluster Graph](assets/cluster-graph.png)
+#### Cluster Graph Legend
+![Legend](assets/graph-legend.png)
