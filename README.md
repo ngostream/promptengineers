@@ -23,3 +23,27 @@
 
 ## Safety & Respect
 Use responsibly, comply with each site’s Terms of Service and robots.txt. For production, add caching and rate limiting.
+
+## Screenshots
+
+### Design
+![ScrapAgent overview](assets/scrapagent-design.png)
+
+### Home Page - Enter Your Prompt
+![Home Page](assets/home-page.png)
+
+### Agent Logs - See the Process
+![Agent Logs](assets/agent-logs.png)
+
+### View Research Brief
+![Research Brief](assets/research-brief.png)
+
+### See Themes in Depth
+![Theme Dropdowns](assets/theme-dropdowns.png)
+
+### View Charts
+![Relevancy Chart (By Domain)](assets/relevancy-graph.png)
+![Sentiment Chart (By Domain)](assets/sentiment-graph.png)
+![Cluster Graph](assets/cluster-graph.png)
+#### Cluster Graph Legend
+![Legend](assets/graph-legend.png)
